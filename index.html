@@ -96,6 +96,10 @@
   button.linklike:hover { background: none; color: #244a6f; }
   @media print { button, .consent-choice { display: none !important; } body { background: #fff; } }
 
+  /* Attention check */
+  .check-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  .check-options button { min-width: 120px; }
+
   /* Post-task survey */
   input, textarea { user-select: text; -webkit-user-select: text; }
   .survey { display: flex; flex-direction: column; gap: 26px; }
@@ -126,7 +130,7 @@
     <p class="sheet-title"><strong>Effects of Response–Reward Contingencies on Behavioral Variability in Humans</strong></p>
 
     <h3>INTRODUCTION</h3>
-    <p>The Blaisdell Lab from the UCLA Department of Psychology are conducting a research study. It is not being externally funded. You were selected as a possible participant because you are eligible to participate through the UCLA Psychology Department Subject Pool (SONA), are at least 18 years old, and have access to a computer or laptop with an internet connection. Your participation in this research study is voluntary.</p>
+    <p>Megan Cady, Principal Investigator, and Dr. Aaron P. Blaisdell, Faculty Sponsor, from the UCLA Department of Psychology are conducting a research study. It is not being externally funded. You were selected as a possible participant because you are eligible to participate through the UCLA Psychology Department Subject Pool (SONA), are at least 18 years old, and have access to a computer or laptop with an internet connection. Your participation in this research study is voluntary.</p>
 
     <h3>WHAT SHOULD I KNOW ABOUT A RESEARCH STUDY?</h3>
     <ul>
@@ -259,6 +263,14 @@
     </svg>
   </div>
   <div id="debug-info"></div>
+</div>
+
+<!-- ════════ ATTENTION CHECK (shown between rounds) ════════ -->
+<div id="screen-check" class="screen">
+  <div class="box">
+    <p id="check-prompt" style="text-align:center;"></p>
+  </div>
+  <div class="check-options" id="check-options"></div>
 </div>
 
 <!-- ════════ TASK COMPLETE ════════ -->
@@ -401,6 +413,14 @@ const CONFIG = {
 
   pointsPerReward: 10,
 
+  // Attention checks: one after a random round in each TEST block from block 2 on
+  // (4 checks with 5 test blocks). The round is picked from rounds 3–8 of the block,
+  // so checks are 5–15 rounds apart. Set attentionChecks to false to turn them off.
+  attentionChecks: true,
+  checkFirstBlock: 2,
+  checkRoundRange: [3, 8],
+  checkWords: ['Purple', 'Green', 'Pink', 'Gray'],
+
   // Timing (milliseconds)
   // Every round takes this long in total (searching + outcome + wait before the next round),
   // no matter how quickly the participant lifts the landmark cup. This removes any incentive
@@ -488,7 +508,8 @@ const SPACING = 140;
 const OFFSET = 90;           // ground position of the first cup's center
 const cupU = c => OFFSET + c * SPACING;
 const cupV = r => OFFSET + r * SPACING;
-const cupID = (r, c) => `R${r + 1}C${c + 1}`;
+// Cups are numbered 1–16 row by row: 1–4 = back row (left to right), 13–16 = front row.
+const cupID = (r, c) => String(r * GRID + c + 1);
 
 // Perspective: things further away (smaller v) are drawn smaller and higher up.
 const P = { cx: 350, yNear: 445, s: 0.95, alpha: 0.35, h: 0.85 };
@@ -518,6 +539,9 @@ const S = {
   lockedUntil: 0,
   timeoutHandle: null,
   rows: [],
+  itiClicks: [],            // clicks between rounds, logged once the next round starts
+  attnPassed: 0,
+  attnTotal: 0,
   finished: false,
 };
 window.__task = S;  // exposed for testing
@@ -639,6 +663,18 @@ function buildTrials() {
   for (let b = 1; b <= CONFIG.test.blocks; b++) {
     all.push(...buildBlock('test', b, CONFIG.test.hiPerBlock, CONFIG.test.loPerBlock, CONFIG.hiProb, CONFIG.loProb, all));
   }
+  // Attention checks: one per test block from checkFirstBlock on, after a random round in checkRoundRange
+  if (CONFIG.attentionChecks) {
+    const [lo, hi] = CONFIG.checkRoundRange;
+    const words = shuffle(CONFIG.checkWords);
+    let n = 0;
+    for (let b = CONFIG.checkFirstBlock; b <= CONFIG.test.blocks; b++) {
+      const block = all.filter(t => t.phase === 'test' && t.block === b);
+      const pos = Math.min(block.length, lo + Math.floor(Math.random() * (hi - lo + 1)));
+      block[pos - 1].checkWord = words[n++ % words.length];   // a different target word each time
+    }
+  }
+
   let prev = null;
   all.forEach((t, i) => {
     t.trialNum = i + 1;
@@ -653,40 +689,40 @@ function buildTrials() {
 // ═══════════════════════════════════════════════════════════════
 //  DATA LOGGING  (one row per event, pigeon-style columns)
 // ═══════════════════════════════════════════════════════════════
+//  Events: cup_search, goal_search, background_click, landmark_click, ITI_click,
+//          reinforced_trial, nonreinforced_trial, timeout_trial,
+//          attention_check_pass, attention_check_fail, SessionEnds
+//  TrialTime: seconds since the round started (negative for ITI_click = time before the
+//             next round starts; for attention-check rows = seconds taken to answer).
+//  BackgroundClickNum counts clicks on the table and on the landmark.
 const COLUMNS = [
   'SessionTime', 'Xcord', 'Ycord', 'Event', 'TrialTime',
-  'TrialType', 'Cue', 'Landmark', 'Scheduled',
-  'CupID', 'IsGoal', 'Revisit', 'SearchNum', 'BackgroundClickNum',
-  'GoalCup', 'GoalArea', 'TrialNum', 'Block', 'Phase',
-  'Subject', 'Counterbalance', 'GoalMode', 'Date',
+  'TrialType', 'ScheduledReward', 'CupID', 'GoalCup',
+  'CupSearchNum', 'BackgroundClickNum', 'TrialNum', 'Landmark',
+  'Subject', 'ExpPhase', 'Date',
 ];
 
+const LANDMARK_NAMES = { triangle: 'orange_triangle', rectangle: 'red_rectangle' };
+
 function logEvent(event, extra = {}) {
-  const now = performance.now();
+  const now = extra.time != null ? extra.time : performance.now();
   const t = S.current;
   S.rows.push({
     SessionTime: fmtSessionTime(now - S.sessionStart),
-    Xcord: extra.x != null ? extra.x.toFixed(1) : 'NA',
-    Ycord: extra.y != null ? extra.y.toFixed(1) : 'NA',
+    Xcord: extra.x != null ? Math.round(extra.x) : 'NA',
+    Ycord: extra.y != null ? Math.round(extra.y) : 'NA',
     Event: event,
-    TrialTime: ((now - S.trialStart) / 1000).toFixed(3),
-    TrialType: t ? Math.round((t.phase === 'training' ? 1.0 : t.prob) * 100) : 'NA',
-    Cue: t ? t.cue : 'NA',
-    Landmark: t ? t.landmark : 'NA',
-    Scheduled: t ? (t.rewarded ? 1 : 0) : 'NA',
+    TrialTime: (extra.trialTime != null ? extra.trialTime : (now - S.trialStart) / 1000).toFixed(3),
+    TrialType: t ? t.cue : 'NA',
+    ScheduledReward: t ? (t.rewarded ? 1 : 0) : 'NA',
     CupID: extra.cup || 'NA',
-    IsGoal: extra.isGoal != null ? (extra.isGoal ? 1 : 0) : 'NA',
-    Revisit: extra.revisit != null ? (extra.revisit ? 1 : 0) : 'NA',
-    SearchNum: S.searchNum,
-    BackgroundClickNum: S.bgClickNum,
     GoalCup: t ? t.goalCup : 'NA',
-    GoalArea: t ? t.area : 'NA',
+    CupSearchNum: S.searchNum,
+    BackgroundClickNum: S.bgClickNum,
     TrialNum: t ? t.trialNum : 'NA',
-    Block: t ? t.block : 'NA',
-    Phase: t ? t.phase : 'NA',
+    Landmark: t ? LANDMARK_NAMES[t.landmark] : 'NA',
     Subject: S.subject,
-    Counterbalance: S.counterbalance,
-    GoalMode: CONFIG.goalMode,
+    ExpPhase: t ? t.phase : 'NA',
     Date: S.date,
   });
 }
@@ -698,21 +734,22 @@ function buildCSV() {
   return lines.join('\n');
 }
 
+// e.g. P7KQ2MXRA_2026-11-05_14.03.22_H009_data.csv
 function dataFilename() {
-  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_cupsearch.csv`;
+  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_${S.time}_H009_data.csv`;
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  POST-TASK SURVEY DATA  (one row per participant, saved as a separate file)
 // ═══════════════════════════════════════════════════════════════
 const SURVEY_COLUMNS = [
-  'Subject', 'Date', 'Counterbalance',
+  'Subject', 'Date', 'AttentionChecksPassed',
   'Strategy', 'NoticedPattern', 'PatternDescription', 'ChangedResponses', 'ChangeDescription',
   'Age', 'Gender', 'GenderOther', 'RaceEthnicity', 'RaceEthnicityOther', 'YearInSchool', 'YearInSchoolOther',
 ];
 
 function surveyFilename() {
-  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_survey.csv`;
+  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_${S.time}_H009_survey.csv`;
 }
 
 function collectSurvey() {
@@ -727,7 +764,7 @@ function collectSurvey() {
   return {
     Subject: S.subject,
     Date: S.date,
-    Counterbalance: S.counterbalance,
+    AttentionChecksPassed: `${S.attnPassed}/${S.attnTotal}`,
     Strategy: text('q1'),
     NoticedPattern: radio('q2'),
     PatternDescription: text('q3'),
@@ -956,11 +993,13 @@ function startTrial() {
     const g = CUPS[t.goalCup];
     svgEl('ellipse', { cx: g.x, cy: g.y, rx: (CUP.rBase + 8) * g.k, ry: (CUP.ryBase + 6) * g.k, fill: 'none', stroke: '#d00', 'stroke-width': 2, 'stroke-dasharray': '6 4' }, layerDebug);
     document.getElementById('debug-info').textContent =
-      `Trial ${t.trialNum}/${S.trials.length} | ${t.phase} block ${t.block} | cue ${t.cue} (${t.landmark}) | scheduled ${t.rewarded ? 'reward' : 'no reward'} | goal ${t.goalCup}`;
+      `Trial ${t.trialNum}/${S.trials.length} | ${t.phase} block ${t.block} | cue ${t.cue} (${t.landmark}) | scheduled ${t.rewarded ? 'reward' : 'no reward'} | goal cup ${t.goalCup}${t.checkWord ? ' | attention check after this round' : ''}`;
   }
 
   S.trialStart = performance.now();
-  logEvent('trial_start');
+  // Clicks made between rounds are logged now, with negative TrialTime (like ITI_peck)
+  for (const c of S.itiClicks) logEvent('ITI_click', { x: c.x, y: c.y, time: c.time });
+  S.itiClicks = [];
   S.acceptingInput = true;
   S.timeoutHandle = setTimeout(() => endTrial('timeout'), CONFIG.trialTimeoutMs);
 }
@@ -973,11 +1012,17 @@ function svgPoint(evt) {
 }
 
 function handleFieldPointer(evt) {
-  if (!S.acceptingInput) return;
+  if (!S.sessionStart || S.finished) return;
   if (evt.pointerType === 'mouse' && evt.button !== 0) return;
   evt.preventDefault();
 
   const now = performance.now();
+  if (!S.acceptingInput) {
+    // Between rounds: keep the click and log it as ITI_click when the next round starts
+    const q = svgPoint(evt);
+    S.itiClicks.push({ x: q.x, y: q.y, time: now });
+    return;
+  }
   if (now < S.lockedUntil) return;   // still in the lockout from the last cup lift
 
   const p = svgPoint(evt);
@@ -992,11 +1037,10 @@ function handleFieldPointer(evt) {
 
   const id = target.getAttribute('data-cup');
   const isGoal = (id === t.goalCup);
-  const revisit = S.searched.has(id);
   S.searched.add(id);
   S.searchNum++;
   S.lockedUntil = now + CONFIG.searchLockoutMs;
-  logEvent('cup_search', { x: p.x, y: p.y, cup: id, isGoal, revisit });
+  logEvent(isGoal ? 'goal_search' : 'cup_search', { x: p.x, y: p.y, cup: id });
 
   if (isGoal) {
     endTrial('goal');
@@ -1041,11 +1085,45 @@ function endTrial(how) {
       }, layerFB);
       msg.textContent = 'Next round starting soon…';
     }
-    setTimeout(startTrial, wait);
+    if (t.checkWord) {
+      // Attention check after this round (round timing is unaffected), then a short gap
+      setTimeout(() => runAttentionCheck(t.checkWord, () => setTimeout(startTrial, CONFIG.itiMs)), wait);
+    } else {
+      setTimeout(startTrial, wait);
+    }
   }, how === 'timeout' ? 0 : CONFIG.outcomeMs);
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  ATTENTION CHECK  (plain word buttons, nothing related to the task stimuli)
+// ═══════════════════════════════════════════════════════════════
+function runAttentionCheck(target, done) {
+  document.getElementById('check-prompt').innerHTML =
+    `To show you’re paying attention, please select the word <strong>${target}</strong>.`;
+  const box = document.getElementById('check-options');
+  box.innerHTML = '';
+  const shownAt = performance.now();
+  shuffle(CONFIG.checkWords).forEach(word => {
+    const b = document.createElement('button');
+    b.textContent = word;
+    b.addEventListener('click', () => {
+      const passed = (word === target);
+      S.attnTotal++;
+      if (passed) S.attnPassed++;
+      logEvent(passed ? 'attention_check_pass' : 'attention_check_fail',
+               { trialTime: (performance.now() - shownAt) / 1000 });
+      showScreen('screen-task');
+      done();
+    }, { once: true });
+    box.appendChild(b);
+  });
+  showScreen('screen-check');
+}
+
 function finishSession() {
+  S.current = S.trials[S.trials.length - 1];
+  logEvent('SessionEnds');
+  S.itiClicks = [];             // clicks after the final round are not logged
   S.finished = true;
   S.current = null;
   S.trialIndex = S.trials.length;
@@ -1082,6 +1160,8 @@ async function submitSurvey() {
 function setupSession() {
   S.subject = makeParticipantCode();
   S.date = todayString();
+  const now = new Date();
+  S.time = `${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
 
   const cbParam = params.get('cb');
   S.counterbalance = (cbParam === '1' || cbParam === '2') ? Number(cbParam) : (Math.random() < 0.5 ? 1 : 2);
@@ -1119,7 +1199,6 @@ document.getElementById('btn-start').addEventListener('click', () => {
   showScreen('screen-task');
   S.sessionStart = performance.now();
   S.trialStart = S.sessionStart;
-  logEvent('session_start');
   setTimeout(startTrial, 600);
 });
 
