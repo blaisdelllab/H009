@@ -7,8 +7,9 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  html { height: 100%; }
   html, body {
-    height: 100%;
+    min-height: 100%;
     background: #f3f1ec;
     color: #222;
     font-family: Arial, Helvetica, sans-serif;
@@ -80,18 +81,137 @@
   #field { width: 100%; height: 100%; display: block; cursor: pointer; }
   #layer-scene, #layer-feedback, #layer-debug, #layer-board { pointer-events: none; }
   #debug-info { font-size: 0.85rem; color: #8a2a2a; min-height: 1.1em; }
+
+  /* Information sheet (consent) and debriefing */
+  .sheet h3 { font-size: 1rem; margin: 20px 0 6px; letter-spacing: 0.02em; }
+  .sheet h3:first-child { margin-top: 0; }
+  .sheet h4 { font-size: 0.98rem; margin: 14px 0 4px; }
+  .sheet p, .sheet li { font-size: 0.98rem; line-height: 1.55; }
+  .sheet p + p { margin-top: 8px; }
+  .sheet ul { padding-left: 22px; margin: 6px 0; }
+  .sheet .sheet-title { text-align: center; }
+  .consent-choice label { display: block; margin: 6px 0; font-size: 1.02rem; cursor: pointer; }
+  .consent-choice input { margin-right: 8px; transform: scale(1.1); }
+  button.linklike { background: none; color: #2f5d8a; padding: 0; font-weight: normal; font-size: 0.95rem; text-decoration: underline; }
+  button.linklike:hover { background: none; color: #244a6f; }
+  @media print { button, .consent-choice { display: none !important; } body { background: #fff; } }
+
+  /* Post-task survey */
+  input, textarea { user-select: text; -webkit-user-select: text; }
+  .survey { display: flex; flex-direction: column; gap: 26px; }
+  .q-title { font-weight: bold; font-size: 1.02rem; line-height: 1.45; margin-bottom: 8px; }
+  .q label { display: block; margin: 5px 0; font-size: 1rem; cursor: pointer; }
+  .q input[type=radio], .q input[type=checkbox] { margin-right: 8px; transform: scale(1.1); }
+  .q textarea {
+    width: 100%; min-height: 72px; padding: 8px 10px; resize: vertical;
+    font-family: inherit; font-size: 1rem; border: 1px solid #b9b4a8; border-radius: 6px;
+  }
+  .q input[type=number] {
+    width: 120px; padding: 8px 10px; font-size: 1rem; border: 1px solid #b9b4a8; border-radius: 6px;
+  }
+  .q input.other {
+    width: 220px; padding: 4px 8px; margin-left: 6px; font-size: 0.95rem; text-align: left;
+    border: 1px solid #b9b4a8; border-radius: 4px;
+  }
 </style>
 </head>
 <body>
 
-<!-- ════════ WELCOME + PARTICIPANT ID ════════ -->
-<div id="screen-welcome" class="screen active">
+<!-- ════════ CONSENT (IRB-approved Research Information Sheet) ════════ -->
+<div id="screen-consent" class="screen active">
   <h1>Cup Search Task</h1>
-  <div class="box">
-    <p>Thank you for taking part in this study.</p>
-    <p>Click <strong>Continue</strong> to begin.</p>
+  <div class="box sheet">
+    <p class="sheet-title">University of California, Los Angeles</p>
+    <h3 class="sheet-title">RESEARCH INFORMATION SHEET</h3>
+    <p class="sheet-title"><strong>Effects of Response–Reward Contingencies on Behavioral Variability in Humans</strong></p>
+
+    <h3>INTRODUCTION</h3>
+    <p>Megan Cady, Principal Investigator, and Dr. Aaron P. Blaisdell, Faculty Sponsor, from the UCLA Department of Psychology are conducting a research study. It is not being externally funded. You were selected as a possible participant because you are eligible to participate through the UCLA Psychology Department Subject Pool (SONA), are at least 18 years old, and have access to a computer or laptop with an internet connection. Your participation in this research study is voluntary.</p>
+
+    <h3>WHAT SHOULD I KNOW ABOUT A RESEARCH STUDY?</h3>
+    <ul>
+      <li>The information below explains this research study.</li>
+      <li>Whether or not you take part is up to you.</li>
+      <li>You can choose not to take part.</li>
+      <li>You can agree to take part and later change your mind.</li>
+      <li>Your decision will not be held against you.</li>
+      <li>You can ask questions before you decide.</li>
+    </ul>
+
+    <h3>WHY IS THIS RESEARCH BEING DONE?</h3>
+    <p>The purpose of this research is to learn more about how people behave during a computer-based task and how patterns of responding may change as people experience different relationships between their actions and outcomes.</p>
+
+    <h3>HOW LONG WILL THE RESEARCH LAST AND WHAT WILL I NEED TO DO?</h3>
+    <p>Participation will take a total of approximately 30 minutes and will occur entirely online in one session.</p>
+    <p>If you volunteer to participate in this study, you will be asked to:</p>
+    <ul>
+      <li>Read the study instructions and complete an online computer-based behavioral game. The game will take approximately 20 minutes.</li>
+      <li>Interact with the game and attempt to earn rewards by responding on the screen.</li>
+      <li>Complete a brief post-task survey about your experience with the task.</li>
+      <li>Complete the study using your own computer or laptop in a quiet, private location of your choosing.</li>
+    </ul>
+    <p>The behavioral task is experimental. Some details about how the task works cannot be fully explained before participation because knowing those details in advance could affect how you respond. You will receive additional information about the purpose and design of the task after you finish the study.</p>
+
+    <h3>ARE THERE ANY RISKS IF I PARTICIPATE?</h3>
+    <p>This study involves no more than minimal risk. You may experience mild boredom, fatigue, or frustration while completing the computer-based task. You may stop participating at any time.</p>
+
+    <h3>ARE THERE ANY BENEFITS IF I PARTICIPATE?</h3>
+    <p>You will not directly benefit from your participation in the research.</p>
+    <p>The results of the research may contribute to a better scientific understanding of how patterns of behavior change under different relationships between actions and outcomes.</p>
+
+    <h3>WHAT OTHER CHOICES DO I HAVE IF I CHOOSE NOT TO PARTICIPATE?</h3>
+    <p>You do not have to participate in this study. You may choose not to participate or may choose to participate in a different study or use any other option for earning credit offered through the UCLA Psychology Department Subject Pool (SONA).</p>
+
+    <h3>HOW WILL INFORMATION ABOUT ME AND MY PARTICIPATION BE KEPT CONFIDENTIAL?</h3>
+    <p>The researchers will do their best to make sure that your private information is kept confidential. Information about you will be handled as confidentially as possible, but participating in research may involve a loss of privacy and the potential for a breach in confidentiality. Study data will be electronically secured. As with any use of electronic means to store data, there is a risk of breach of data security.</p>
+    <h4>Use of personal information that can identify you:</h4>
+    <p>The behavioral research dataset will not contain your name, email address, or other direct identifiers. You will be represented in the research dataset by a study-specific participant code. SONA is used only to manage sign-ups and research participation credit, and your name and SONA identification number will not be recorded with your task responses.</p>
+    <h4>How information about you will be stored:</h4>
+    <!-- NOTE: This paragraph uses the Google Drive wording from the pending OHRPP modification
+         (the approved version said OSF). Keep it identical to whatever OHRPP certifies. -->
+    <p>Behavioral data from the online task will be transmitted through DataPipe and stored in an access-restricted folder in the research team’s UCLA Google Drive. Data transmitted over the internet will be encrypted during transmission using HTTPS. Access to the stored research data will be limited to authorized study personnel.</p>
+    <h4>People and agencies that will have access to your information:</h4>
+    <p>The research team and authorized UCLA personnel may have access to study data and records to monitor the study. Publications and/or presentations that result from this study will not identify you by name.</p>
+    <h4>How long information from the study will be kept:</h4>
+    <p>De-identified research data may be retained after completion of the study for future research and analysis. The retained dataset will not contain your name, email address, or other direct identifiers.</p>
+
+    <h3>USE OF DATA FOR FUTURE RESEARCH</h3>
+    <p>Your de-identified data may be kept for use in future research. De-identified data may also be shared with other researchers or posted in a public research data repository (such as OSF), for example when the results are published. These data will not include your name or other information that directly identifies you. Any future use or sharing of study data will be limited to de-identified data and will occur in accordance with applicable UCLA requirements and institutional policies.</p>
+
+    <h3>WILL I BE PAID FOR MY PARTICIPATION?</h3>
+    <p>You will not receive monetary payment for participating. You will receive 0.5 research participation credits through the UCLA Psychology Department Subject Pool (SONA) for participating in this approximately 30-minute study. You will receive this credit even if you choose to stop before finishing.</p>
+
+    <h3>WHO CAN I CONTACT IF I HAVE QUESTIONS ABOUT THIS STUDY?</h3>
+    <h4>The research team:</h4>
+    <p>If you have any questions, comments, or concerns about the research, please contact Megan Cady at megan.cady@ucla.edu or Dr. Aaron P. Blaisdell at blaisdell@psych.ucla.edu.</p>
+    <h4>UCLA Office of the Human Research Protection Program (OHRPP):</h4>
+    <p>If you have questions about your rights as a research subject, or you have concerns or suggestions and you want to talk to someone other than the researchers, you may contact the UCLA OHRPP by phone: (310) 206-2040; by email: participants@research.ucla.edu; or by mail: Box 951406, Los Angeles, CA 90095-1406.</p>
+
+    <h3>WHAT ARE MY RIGHTS IF I TAKE PART IN THIS STUDY?</h3>
+    <ul>
+      <li>You can choose whether or not you want to be in this study, and you may withdraw your consent and discontinue participation at any time.</li>
+      <li>Whatever decision you make, there will be no penalty to you and no loss of benefits to which you were otherwise entitled.</li>
+      <li>You may refuse to answer any survey questions that you do not want to answer and still remain in the study.</li>
+    </ul>
+
+    <h3>AGREEMENT TO PARTICIPATE</h3>
+    <p>By selecting “I agree to participate” below, you confirm that you have read the information above, are at least 18 years old, and voluntarily agree to participate in this research study.</p>
+    <div class="consent-choice">
+      <label><input type="radio" name="consent" value="agree">I agree to participate</label>
+      <label><input type="radio" name="consent" value="decline">I do not agree to participate</label>
+    </div>
+    <p>If you select “I do not agree to participate,” you will not proceed to the research procedures. You may save or print a copy of this information for your records.</p>
+    <p><button type="button" class="linklike" id="btn-print">Print or save a copy of this information</button></p>
   </div>
-  <button id="btn-id">Continue</button>
+  <button id="btn-consent" disabled>Continue</button>
+</div>
+
+<!-- ════════ DECLINED ════════ -->
+<div id="screen-declined" class="screen">
+  <h2>Thank you</h2>
+  <div class="box">
+    <p>You have chosen not to participate in this study. No information has been recorded. You may now close this window.</p>
+  </div>
 </div>
 
 <!-- ════════ INSTRUCTIONS ════════ -->
@@ -141,9 +261,9 @@
   <div id="debug-info"></div>
 </div>
 
-<!-- ════════ END ════════ -->
+<!-- ════════ TASK COMPLETE ════════ -->
 <div id="screen-end" class="screen">
-  <h2>All done!</h2>
+  <h2>Task complete!</h2>
   <div class="box">
     <p id="end-score" style="text-align:center;font-size:1.25rem;"></p>
   </div>
@@ -151,7 +271,101 @@
     <h2 id="tier-heading-2" style="text-align:center;font-size:1.1rem;"></h2>
     <table class="tiers" id="tier-table-2"></table>
   </div>
-  <p id="save-status"></p>
+  <p>You have completed the behavioral task. Please continue to the brief post-task survey.</p>
+  <button id="btn-to-survey">Continue</button>
+</div>
+
+<!-- ════════ POST-TASK SURVEY ════════ -->
+<div id="screen-survey" class="screen">
+  <h2>Post-Task Survey</h2>
+  <div class="box">
+    <p>Please answer the following questions about the task. All questions are optional, and you may skip any question you do not wish to answer.</p>
+  </div>
+  <form id="survey-form" class="box survey" onsubmit="return false;">
+    <div class="q">
+      <div class="q-title">1. What strategy, if any, did you use while completing the task?</div>
+      <textarea name="q1"></textarea>
+    </div>
+    <div class="q">
+      <div class="q-title">2. Did you notice any patterns in when or how points/rewards were available during the task?</div>
+      <label><input type="radio" name="q2" value="Yes">Yes</label>
+      <label><input type="radio" name="q2" value="No">No</label>
+      <label><input type="radio" name="q2" value="Not sure">Not sure</label>
+    </div>
+    <div class="q">
+      <div class="q-title">3. If you noticed any patterns, please briefly describe them.</div>
+      <textarea name="q3"></textarea>
+    </div>
+    <div class="q">
+      <div class="q-title">4. Did you intentionally change where or how you responded based on whether you were receiving points/rewards?</div>
+      <label><input type="radio" name="q4" value="Yes">Yes</label>
+      <label><input type="radio" name="q4" value="No">No</label>
+      <label><input type="radio" name="q4" value="Not sure">Not sure</label>
+    </div>
+    <div class="q">
+      <div class="q-title">5. If yes, please briefly describe how you changed your responses.</div>
+      <textarea name="q5"></textarea>
+    </div>
+    <div class="q">
+      <div class="q-title">6. What is your age?</div>
+      <input type="number" name="q6" min="18" max="99" step="1">
+      <label><input type="checkbox" name="q6_pna" value="Prefer not to answer">Prefer not to answer</label>
+    </div>
+    <div class="q">
+      <div class="q-title">7. What is your gender?</div>
+      <label><input type="radio" name="q7" value="Woman">Woman</label>
+      <label><input type="radio" name="q7" value="Man">Man</label>
+      <label><input type="radio" name="q7" value="Nonbinary">Nonbinary</label>
+      <label><input type="radio" name="q7" value="Another identity">Another identity:<input type="text" class="other" name="q7_other"></label>
+      <label><input type="radio" name="q7" value="Prefer not to answer">Prefer not to answer</label>
+    </div>
+    <div class="q">
+      <div class="q-title">8. What is your race/ethnicity? Select all that apply.</div>
+      <label><input type="checkbox" name="q8" value="American Indian or Alaska Native">American Indian or Alaska Native</label>
+      <label><input type="checkbox" name="q8" value="Asian">Asian</label>
+      <label><input type="checkbox" name="q8" value="Black or African American">Black or African American</label>
+      <label><input type="checkbox" name="q8" value="Hispanic or Latino/a/e">Hispanic or Latino/a/e</label>
+      <label><input type="checkbox" name="q8" value="Middle Eastern or North African">Middle Eastern or North African</label>
+      <label><input type="checkbox" name="q8" value="Native Hawaiian or Other Pacific Islander">Native Hawaiian or Other Pacific Islander</label>
+      <label><input type="checkbox" name="q8" value="White">White</label>
+      <label><input type="checkbox" name="q8" value="Another race or ethnicity">Another race or ethnicity:<input type="text" class="other" name="q8_other"></label>
+      <label><input type="checkbox" name="q8" value="Prefer not to answer">Prefer not to answer</label>
+    </div>
+    <div class="q">
+      <div class="q-title">9. What is your current year in school?</div>
+      <label><input type="radio" name="q9" value="First year">First year</label>
+      <label><input type="radio" name="q9" value="Second year">Second year</label>
+      <label><input type="radio" name="q9" value="Third year">Third year</label>
+      <label><input type="radio" name="q9" value="Fourth year">Fourth year</label>
+      <label><input type="radio" name="q9" value="Fifth year or beyond">Fifth year or beyond</label>
+      <label><input type="radio" name="q9" value="Graduate student">Graduate student</label>
+      <label><input type="radio" name="q9" value="Other">Other:<input type="text" class="other" name="q9_other"></label>
+      <label><input type="radio" name="q9" value="Prefer not to answer">Prefer not to answer</label>
+    </div>
+  </form>
+  <button id="btn-submit-survey">Submit</button>
+</div>
+
+<!-- ════════ THANK YOU ════════ -->
+<div id="screen-thanks" class="screen">
+  <h2>Thank you!</h2>
+  <div class="box">
+    <p id="save-status" style="text-align:center;"></p>
+    <p id="code-line" style="text-align:center;font-size:0.95rem;"></p>
+  </div>
+  <!-- IRB-approved debriefing statement -->
+  <div class="box sheet">
+    <h3 class="sheet-title">DEBRIEFING STATEMENT</h3>
+    <p class="sheet-title"><strong>Effects of Response–Reward Contingencies on Behavioral Variability in Humans</strong></p>
+    <p>Thank you for participating in this study.</p>
+    <p>The purpose of this research is to examine how different relationships between behavior and rewards influence behavioral variability. Some information about the specific response–reward relationships in the task was not provided to you before participation because knowing these details in advance could have influenced how you responded during the task.</p>
+    <p>During the task, the availability of points and their relationship to your responses varied across conditions. Depending on your condition, points may have been delivered with different probabilities, may have been signaled by cues on the screen, and may have depended on your responses, been prevented by your responses, or been delivered regardless of what you did. Participants were randomly assigned to conditions, and some participants experienced more than one condition. Comparing these conditions allows us to examine whether people change where, when, and how they respond depending on how often rewards are available and how their behavior relates to receiving them.</p>
+    <p>We did not provide false information about the study before you participated. Rather, we withheld some details about the specific response–reward relationships so that we could measure behavior without participants intentionally changing their responses based on knowledge of the experimental design.</p>
+    <p>Please do not discuss the specific purpose or conditions of this study with other students who may participate in the future, as knowing this information in advance could influence their behavior and affect the results of the study.</p>
+    <p>If you have questions about this research, please contact Megan Cady at megan.cady@ucla.edu or Dr. Aaron P. Blaisdell at blaisdell@psych.ucla.edu.</p>
+    <p>If you have questions about your rights as a research participant or concerns about the research, you may contact the UCLA Office of the Human Research Protection Program (OHRPP) at (310) 206-2040 or participants@research.ucla.edu.</p>
+    <p><strong>Thank you for your participation!</strong></p>
+  </div>
 </div>
 
 <script>
@@ -231,7 +445,8 @@ if (DEBUG) {
 const DATAPIPE_EXPERIMENT_ID = 'd6rJriDPvzrQ';
 const IS_TEST = DEBUG || params.get('test') === '1';   // test files are labeled TEST_
 
-// Random participant code, e.g. P7KQ2MXRA (no 0/O or 1/I, to avoid confusion)
+// Random participant code, e.g. P7KQ2MXRA (no 0/O or 1/I, to avoid confusion).
+// Not linked to names or SONA IDs.
 function makeParticipantCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -485,6 +700,63 @@ function buildCSV() {
 
 function dataFilename() {
   return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_cupsearch.csv`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  POST-TASK SURVEY DATA  (one row per participant, saved as a separate file)
+// ═══════════════════════════════════════════════════════════════
+const SURVEY_COLUMNS = [
+  'Subject', 'Date', 'Counterbalance',
+  'Strategy', 'NoticedPattern', 'PatternDescription', 'ChangedResponses', 'ChangeDescription',
+  'Age', 'Gender', 'GenderOther', 'RaceEthnicity', 'RaceEthnicityOther', 'YearInSchool', 'YearInSchoolOther',
+];
+
+function surveyFilename() {
+  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_survey.csv`;
+}
+
+function collectSurvey() {
+  const form = document.getElementById('survey-form');
+  const text = name => form.elements[name].value.trim() || 'NA';
+  const radio = name => { const el = form.querySelector(`input[name="${name}"]:checked`); return el ? el.value : 'NA'; };
+  const checks = name => {
+    const vals = [...form.querySelectorAll(`input[name="${name}"]:checked`)].map(el => el.value);
+    return vals.length ? vals.join('; ') : 'NA';
+  };
+  const age = form.elements.q6_pna.checked ? 'Prefer not to answer' : (form.elements.q6.value.trim() || 'NA');
+  return {
+    Subject: S.subject,
+    Date: S.date,
+    Counterbalance: S.counterbalance,
+    Strategy: text('q1'),
+    NoticedPattern: radio('q2'),
+    PatternDescription: text('q3'),
+    ChangedResponses: radio('q4'),
+    ChangeDescription: text('q5'),
+    Age: age,
+    Gender: radio('q7'),
+    GenderOther: text('q7_other'),
+    RaceEthnicity: checks('q8'),
+    RaceEthnicityOther: text('q8_other'),
+    YearInSchool: radio('q9'),
+    YearInSchoolOther: text('q9_other'),
+  };
+}
+
+// Open-ended answers can contain commas, quotes, or line breaks, so quote cells when needed
+function csvCell(v) {
+  const str = String(v);
+  return /[",\n\r]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+}
+
+function buildSurveyCSV(answers) {
+  return SURVEY_COLUMNS.join(',') + '\n' + SURVEY_COLUMNS.map(c => csvCell(answers[c])).join(',');
+}
+
+// Wraps sendToDataPipe so the page knows when an upload is still in progress
+function trackedSave(filename, csvString) {
+  S.pendingUploads = (S.pendingUploads || 0) + 1;
+  return sendToDataPipe(filename, csvString).finally(() => { S.pendingUploads--; });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -783,24 +1055,31 @@ function finishSession() {
     `You earned <strong>${S.points} points</strong> — <strong>${myTier.name}</strong> tier!`;
   renderTierTable('tier-table-2', 'tier-heading-2', myTier);
   showScreen('screen-end');
-  saveData();
+  // Upload the task data right away, so it's saved even if the survey isn't completed
+  S.taskSave = trackedSave(dataFilename(), buildCSV());
 }
 
-async function saveData() {
+async function submitSurvey() {
+  const btn = document.getElementById('btn-submit-survey');
+  btn.disabled = true;
   const status = document.getElementById('save-status');
-  status.textContent = 'Saving your data… please keep this page open.';
-  S.saving = true;
-  const saved = await sendToDataPipe(dataFilename(), buildCSV());
-  S.saving = false;
-  status.textContent = saved
-    ? 'Your data have been saved. Thank you for participating!'
+  status.textContent = 'Saving your responses… please keep this page open.';
+  showScreen('screen-thanks');
+  window.scrollTo(0, 0);
+  const surveySave = trackedSave(surveyFilename(), buildSurveyCSV(collectSurvey()));
+  const [taskSaved, surveySaved] = await Promise.all([S.taskSave, surveySave]);
+  S.surveyDone = true;
+  document.getElementById('code-line').textContent =
+    `Your participant code is ${S.subject}. If you contact the research team about your participation, please include this code.`;
+  status.textContent = (taskSaved && surveySaved)
+    ? 'Your responses have been saved. Thank you for participating!'
     : 'There was a problem saving your data. Please email megan.cady@ucla.edu to let us know.';
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  SETUP
 // ═══════════════════════════════════════════════════════════════
-function submitID() {
+function setupSession() {
   S.subject = makeParticipantCode();
   S.date = todayString();
 
@@ -824,7 +1103,17 @@ function submitID() {
   showScreen('screen-instructions');
 }
 
-document.getElementById('btn-id').addEventListener('click', submitID);
+// Consent: Continue is enabled once a choice is made
+document.querySelectorAll('input[name="consent"]').forEach(r =>
+  r.addEventListener('change', () => { document.getElementById('btn-consent').disabled = false; }));
+document.getElementById('btn-consent').addEventListener('click', () => {
+  const choice = document.querySelector('input[name="consent"]:checked');
+  if (!choice) return;
+  window.scrollTo(0, 0);
+  if (choice.value === 'agree') setupSession();
+  else showScreen('screen-declined');
+});
+document.getElementById('btn-print').addEventListener('click', () => window.print());
 
 document.getElementById('btn-start').addEventListener('click', () => {
   showScreen('screen-task');
@@ -836,10 +1125,24 @@ document.getElementById('btn-start').addEventListener('click', () => {
 
 document.getElementById('field').addEventListener('pointerdown', handleFieldPointer);
 
+document.getElementById('btn-to-survey').addEventListener('click', () => {
+  showScreen('screen-survey');
+  window.scrollTo(0, 0);
+});
+document.getElementById('btn-submit-survey').addEventListener('click', submitSurvey);
+
+// Typing in an "Another…/Other" box selects that option automatically
+document.querySelectorAll('#survey-form input.other').forEach(box => {
+  box.addEventListener('input', () => {
+    const choice = box.parentElement.querySelector('input[type=radio], input[type=checkbox]');
+    if (box.value.trim()) choice.checked = true;
+  });
+});
+
 drawBoard();
 
 window.addEventListener('beforeunload', e => {
-  if ((S.sessionStart && !S.finished) || S.saving) { e.preventDefault(); e.returnValue = ''; }
+  if ((S.sessionStart && !S.finished) || S.pendingUploads > 0) { e.preventDefault(); e.returnValue = ''; }
 });
 </script>
 </body>
