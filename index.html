@@ -478,7 +478,7 @@ const CONFIG = {
 
   // Two extra survey questions for this task (keyboard type; whether keys mattered).
   // OFF until they are approved by the IRB.
-  extraSurveyQuestions: true,
+  extraSurveyQuestions: false,
 
   fullscreen: true,
   showSummary: false,           // pilot summary on the task-complete screen (researcher use)
@@ -734,7 +734,7 @@ function buildPracticeTrials() {
 //  DATA LOGGING  (one row per counted press, plus one row per attention check)
 // ═══════════════════════════════════════════════════════════════
 const COLUMNS = [
-  'participant_id', 'date', 'session_start', 'counterbalance', 'response_mode', 'presses_required',
+  'Subject', 'Date', 'session_start', 'counterbalance', 'response_mode', 'presses_required',
   'phase', 'trial', 'block', 'cue_trial', 'cue_color', 'cue_prob', 'scheduled_reward', 'completed', 'rewarded',
   'trial_response', 'invalid_presses', 'fast_presses', 'precue_presses', 'points_total', 'cue_onset_ms',
   'press', 'key', 'key_zone', 'key_typed', 'key_x', 'key_y', 'press_time_ms', 'ipi_ms',
@@ -744,7 +744,7 @@ const COLUMNS = [
 
 function baseRow() {
   return {
-    participant_id: S.subject, date: S.date, session_start: S.sessionISO, counterbalance: S.counterbalance,
+    Subject: S.subject, Date: S.date, session_start: S.sessionISO, counterbalance: S.counterbalance,
     response_mode: CONFIG.mode, presses_required: NP,
     screen: `${screen.width}x${screen.height}`, user_agent: navigator.userAgent,
   };
