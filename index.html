@@ -3,7 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cup Search Task</title>
+<title>Points Task</title>
+<!--
+  KEYPRESS VARIABILITY TASK: v4 (participant version)
+  ===================================================
+  Flow: consent (IRB Research Information Sheet) -> instructions -> practice ->
+  test (with attention checks) -> task complete -> post-task survey ->
+  thank-you + debriefing. Consent, survey, attention checks, debriefing and
+  DataPipe saving follow the Cup Search Task (H009).
+
+  TASK
+    Two colored circles signal 100% and 20% reward. On each round the participant
+    makes CONFIG.presses key presses on ANY key of their physical keyboard. Reward
+    depends only on completing the presses in time, never on which keys are used.
+    Not counted: Esc, the Windows/Command key, and keys pressed while Ctrl, Alt or
+    Cmd is held (logged as invalid presses).
+
+  DATA (two files per participant, sent to DataPipe, like the cup study)
+    <code>_<date>_<time>_<studyCode>_data.csv    one row per counted press, plus one
+        row per attention check (phase = attention_check)
+    <code>_<date>_<time>_<studyCode>_survey.csv  one row of survey answers
+    The participant code is random (e.g. P7KQ2MXRA) and is not linked to SONA IDs.
+    Nothing from the SONA link is read or stored.
+    Test runs (?debug=1, ?test=1 or ?speed=N) are labeled TEST_.
+
+  URL OPTIONS (testing / counterbalancing)
+    ?debug=1       short session (2 blocks), pilot summary at the end, TEST_ files
+    ?test=1        full session, but files labeled TEST_
+    ?summary=1     show the pilot summary on the task-complete screen
+    ?cb=0|1        which color is 100% (random if absent)
+    ?mode=sequence F/J-only fallback version
+    ?presses=N     presses per round (1 to 8)
+    ?blocks=N      number of blocks (each block = 10 rounds per color)
+    ?speed=N       run all timings N times faster (testing only)
+
+  KEY POSITIONS
+    x/y = key center on a standard full-size US keyboard, in key widths
+    (y: 0 = function row, 1 = number row, 2 = QWERTY row, 3 = home row,
+    4 = ZXCV row, 5 = space-bar row). Arrows, Home/End and numpad positions
+    differ on laptops; key_zone marks them.
+-->
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -58,29 +97,23 @@
     border-radius: 6px;
   }
 
-  .error { color: #b3261e; font-size: 0.95rem; min-height: 1.2em; }
-
-  /* Tier table */
-  table.tiers { border-collapse: collapse; margin: 6px auto 0; font-size: 1rem; }
-  table.tiers td { padding: 6px 18px; border-bottom: 1px solid #e3dfd6; }
-  table.tiers tr:last-child td { border-bottom: none; }
-  table.tiers td:first-child { font-weight: bold; text-align: left; }
-  table.tiers td:last-child { text-align: right; }
-  table.tiers tr.mine td { background: #fff4c7; }
-
   /* Task screen */
-  #screen-task { max-width: none; padding: 8px 16px; gap: 6px; }
-  #hud, #field-wrap { width: min(94vw, calc((100vh - 80px) * 1.43)); }
+  #screen-task { max-width: none; min-height: 100vh; justify-content: center; padding: 0; }
   #hud {
+    position: fixed; top: 16px; left: 24px; right: 24px;
     display: flex; justify-content: space-between; align-items: center;
     font-size: 1.15rem; font-weight: bold;
   }
-  #progress-wrap { width: 40%; height: 8px; background: #ddd8cd; border-radius: 4px; overflow: hidden; }
+  #progress-wrap { width: 30%; height: 8px; background: #ddd8cd; border-radius: 4px; overflow: hidden; }
   #progress-bar  { height: 100%; width: 0%; background: #2f5d8a; }
-  #field-wrap { aspect-ratio: 700 / 490; touch-action: manipulation; }
-  #field { width: 100%; height: 100%; display: block; cursor: pointer; }
-  #layer-scene, #layer-feedback, #layer-debug, #layer-board { pointer-events: none; }
-  #debug-info { font-size: 0.85rem; color: #8a2a2a; min-height: 1.1em; }
+  #stage { position: relative; width: 300px; height: 240px; display: flex; align-items: center; justify-content: center; }
+  #cue { width: 160px; height: 160px; border-radius: 50%; }
+  #outcome { position: absolute; font-size: 56px; font-weight: bold; color: #1f7a2e; }
+  #msg { position: absolute; font-size: 1.3rem; color: #555; }
+  #slots { display: flex; gap: 14px; height: 22px; }
+  .slot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #8a8a8a; }
+  .slot.on { background: #333; border-color: #333; }
+  .hidden { visibility: hidden; }
 
   /* Information sheet (consent) and debriefing */
   .sheet h3 { font-size: 1rem; margin: 20px 0 6px; letter-spacing: 0.02em; }
@@ -117,13 +150,42 @@
     width: 220px; padding: 4px 8px; margin-left: 6px; font-size: 0.95rem; text-align: left;
     border: 1px solid #b9b4a8; border-radius: 4px;
   }
+
+  /* Pilot summary (researcher view only: ?summary=1 or ?debug=1) */
+  #screen-end { max-width: 960px; }
+  #screen-end > .box, #screen-end > p { max-width: 608px; }
+  #pilot-summary { width: 100%; text-align: left; font-size: 0.95rem; }
+  #pilot-summary h3 { margin: 8px 0; }
+  table.sum { border-collapse: collapse; font-size: 13px; margin: 10px 0 18px; width: 100%; background: #fff; }
+  table.sum th, table.sum td { padding: 5px 5px; border-bottom: 1px solid #e3dfd6; text-align: right; white-space: nowrap; }
+  table.sum th:first-child, table.sum td:first-child { text-align: left; }
+  table.sum th { color: #666; font-weight: normal; white-space: normal; vertical-align: bottom; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .heat h4 { margin: 16px 0 8px; font-size: 0.95rem; }
+  .hkb { position: relative; }
+  .hk { position: absolute; border-radius: 3px; background: #e6e2d9; color: #222; font-size: 10px;
+    display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
+  .hk.off { opacity: .35; }
+  .seqgrid { display: grid; gap: 4px; }
+  .seqcell { width: 64px; height: 42px; border-radius: 4px; background: #e6e2d9; font-size: 12px; line-height: 1.2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .note { color: #6b6b6b; font-size: 0.85rem; }
+  .hk .note { font-size: 9px; }
 </style>
 </head>
 <body>
 
+<!-- ════════ KEYBOARD REQUIRED (touch-only devices) ════════ -->
+<div id="screen-keyboard" class="screen">
+  <h2>A keyboard is required</h2>
+  <div class="box">
+    <p>This study needs a computer or laptop with a physical keyboard. Please return on a laptop or desktop computer.</p>
+  </div>
+</div>
+
 <!-- ════════ CONSENT (IRB-approved Research Information Sheet) ════════ -->
 <div id="screen-consent" class="screen active">
-  <h1>Cup Search Task</h1>
+  <h1>Points Task</h1>
   <div class="box sheet">
     <p class="sheet-title">University of California, Los Angeles</p>
     <h3 class="sheet-title">RESEARCH INFORMATION SHEET</h3>
@@ -221,48 +283,31 @@
 <!-- ════════ INSTRUCTIONS ════════ -->
 <div id="screen-instructions" class="screen">
   <h2>Instructions</h2>
-  <div class="box">
-    <p>On each round you will see a table with 16 cups. Points are hidden under the cups.</p>
-    <p><strong>Click on a cup to lift it and look underneath.</strong> Each round ends on its own, and then a new round begins.</p>
-    <p>Your goal is to <strong>earn as many points as you can.</strong></p>
-    <p id="duration-text">The task takes about 10 minutes.</p>
-  </div>
-  <div class="box">
-    <h2 id="tier-heading-1" style="text-align:center;font-size:1.1rem;"></h2>
-    <table class="tiers" id="tier-table-1"></table>
-  </div>
+  <div class="box" id="instructions-box"></div>
   <button id="btn-start">Start</button>
 </div>
 
 <!-- ════════ TASK ════════ -->
 <div id="screen-task" class="screen">
   <div id="hud">
-    <span id="points-display">Points: 0</span>
     <div id="progress-wrap"><div id="progress-bar"></div></div>
+    <span id="points-display">Points: 0</span>
   </div>
-  <div id="field-wrap">
-    <svg id="field" viewBox="0 0 700 490" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="cupGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"   stop-color="#2b4460"/>
-          <stop offset="30%"  stop-color="#5f80a6"/>
-          <stop offset="48%"  stop-color="#8fb0d2"/>
-          <stop offset="70%"  stop-color="#4f6f94"/>
-          <stop offset="100%" stop-color="#253c55"/>
-        </linearGradient>
-        <linearGradient id="tableGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="#c39d6b"/>
-          <stop offset="100%" stop-color="#e3c595"/>
-        </linearGradient>
-      </defs>
-      <g id="layer-board"></g>
-      <g id="layer-scene"></g>
-      <g id="layer-hit"></g>
-      <g id="layer-feedback"></g>
-      <g id="layer-debug"></g>
-    </svg>
+  <div id="stage">
+    <div id="cue" class="hidden"></div>
+    <div id="outcome" class="hidden"></div>
+    <div id="msg" class="hidden"></div>
   </div>
-  <div id="debug-info"></div>
+  <div id="slots" class="hidden"></div>
+</div>
+
+<!-- ════════ END OF PRACTICE ════════ -->
+<div id="screen-practice-done" class="screen">
+  <div class="box">
+    <p>That was the practice. The task itself starts now.</p>
+    <p>Remember: try to earn as many points as you can.</p>
+  </div>
+  <button id="btn-practice-done">Continue</button>
 </div>
 
 <!-- ════════ ATTENTION CHECK (shown between rounds) ════════ -->
@@ -279,12 +324,9 @@
   <div class="box">
     <p id="end-score" style="text-align:center;font-size:1.25rem;"></p>
   </div>
-  <div class="box">
-    <h2 id="tier-heading-2" style="text-align:center;font-size:1.1rem;"></h2>
-    <table class="tiers" id="tier-table-2"></table>
-  </div>
   <p>You have completed the behavioral task. Please continue to the brief post-task survey.</p>
   <button id="btn-to-survey">Continue</button>
+  <div id="pilot-summary"></div>
 </div>
 
 <!-- ════════ POST-TASK SURVEY ════════ -->
@@ -354,6 +396,20 @@
       <label><input type="radio" name="q9" value="Other">Other:<input type="text" class="other" name="q9_other"></label>
       <label><input type="radio" name="q9" value="Prefer not to answer">Prefer not to answer</label>
     </div>
+    <div id="extra-questions" class="survey">
+      <div class="q">
+        <div class="q-title">10. What kind of keyboard did you use for this task?</div>
+        <label><input type="radio" name="q10" value="Built-in laptop keyboard">The keyboard built into my laptop</label>
+        <label><input type="radio" name="q10" value="External keyboard">A separate (external) keyboard</label>
+        <label><input type="radio" name="q10" value="Not sure">Not sure</label>
+      </div>
+      <div class="q">
+        <div class="q-title">11. During the task, did you think that which keys you pressed affected whether you earned points?</div>
+        <label><input type="radio" name="q11" value="Yes">Yes</label>
+        <label><input type="radio" name="q11" value="No">No</label>
+        <label><input type="radio" name="q11" value="Not sure">Not sure</label>
+      </div>
+    </div>
   </form>
   <button id="btn-submit-survey">Submit</button>
 </div>
@@ -385,85 +441,81 @@
 //  SETTINGS — change these to adjust the experiment
 // ═══════════════════════════════════════════════════════════════
 const CONFIG = {
-  // Where the points are hidden relative to the landmark:
-  //   'exact' = replication of Stahlman & Blaisdell (2011): the landmark stands right
-  //             next to one cup, and the points are always under that cup.
-  //   'area'  = the landmark sits between four cups, and the points are under
-  //             one of those four (chosen at random each trial).
-  goalMode: 'exact',
+  mode: 'keys',                 // 'keys' (any key) or 'sequence' (F/J only, fallback version)
+  presses: 4,                   // key presses per round
+  probs: [1.0, 0.2],            // reward probability signaled by each color
+  colors: { blue: '#0072B2', orange: '#E69F00' },   // colorblind-safe (Okabe-Ito)
 
-  // In 'exact' mode, which side of the goal cup the landmark stands on: 'right' or 'left'.
-  // It's always the same side, so the landmark–cup rule stays fixed (like the rats'
-  // "food is always just south of the landmark").
-  landmarkSide: 'right',
+  // Trial structure. Each block has roundsPerColorPerBlock rounds of each color, intermixed.
+  // Probabilities are applied exactly within each block: 10 × 20% = exactly 2 rewarded rounds.
+  blocks: 5,                    // 5 blocks × 20 rounds = 100 test rounds (50 per color)
+  roundsPerColorPerBlock: 10,
+  maxSameColorRun: 3,           // no more than 3 rounds of one color in a row
 
-  // Reward probability signaled by each landmark during the TEST phase.
-  hiProb: 1.0,
-  loProb: 0.2,
-
-  // Trial structure. Probabilities are applied exactly within each block,
-  // so (trials per block × probability) should be a whole number.
-  // 5 LO trials × 20% = exactly 1 rewarded LO trial per block.
-  // Training is OFF (blocks: 0). To add a Phase 1-style training phase, where both
-  // landmarks are reinforced 100% of the time, set blocks to 1 or more.
-  // Number of TEST rounds = blocks × 10. 5 blocks = 50 rounds (≈10 min with roundLengthMs = 12 s).
-  training: { blocks: 0, hiPerBlock: 4, loPerBlock: 4 },
-  test:     { blocks: 5, hiPerBlock: 5, loPerBlock: 5 },
-  maxSameTypeRun: 3,          // no more than 3 HI or 3 LO trials in a row
+  practiceRounds: 4,            // gray circle, rewarded every time
+  practiceProb: 1.0,
+  practiceColor: '#8a8f98',
 
   pointsPerReward: 10,
 
-  // Attention checks: one after a random round in each TEST block from block 2 on
-  // (4 checks with 5 test blocks). The round is picked from rounds 3–8 of the block,
-  // so checks are 5–15 rounds apart. Set attentionChecks to false to turn them off.
+  // Attention checks: one after a random round in each test block from block 2 on
+  // (4 checks with 5 blocks). The round is picked from rounds 5–16 of the 20-round block.
+  // Checks are answered by clicking a word with the mouse; key presses are ignored there.
   attentionChecks: true,
   checkFirstBlock: 2,
-  checkRoundRange: [3, 8],
+  checkRoundRange: [5, 16],
   checkWords: ['Purple', 'Green', 'Pink', 'Gray'],
 
   // Timing (milliseconds)
-  // Every round takes this long in total (searching + outcome + wait before the next round),
-  // no matter how quickly the participant lifts the landmark cup. This removes any incentive
-  // to rush through: going straight to the landmark cup does NOT make the task end sooner.
-  // Set to 0 to let each round move on as soon as the outcome has been shown.
-  roundLengthMs: 12000,
-  trialTimeoutMs: 10000,      // round ends if the goal cup isn't lifted within 10 s
-  searchLockoutMs: 400,       // after a cup click, further clicks are ignored for 400 ms
-  liftUpMs: 170,              // cup lift animation: rise ...
-  liftHoldMs: 300,            // ... stay up (so they can see the empty spot) ...
-  liftDownMs: 200,            // ... and lower back down
-  outcomeMs: 1300,            // how long the goal cup stays lifted at the end of a round
-  itiMs: 1000,                // empty table between rounds
+  itiMs: [800, 1400],           // blank screen between rounds (random in this range)
+  responseWindowMs: 5000,       // time to make all presses
+  minInterPressMs: 40,          // presses closer together than this are ignored (keyboard mashing)
+  outcomeMs: 1000,              // "+10" (or blank, if unrewarded)
+  missMs: 1000,                 // "Too slow"
 
-  // Points tier list shown before and after the task (edit names/cutoffs as needed).
-  // Max possible with the defaults: 25 HI + 5 LO rewards = 30 × 10 = 300.
-  // These cutoffs are placeholders — set them from pilot data.
-  tierHeading: 'How past participants scored',
-  tiers: [
-    { name: 'Gold',   min: 280 },
-    { name: 'Silver', min: 220 },
-    { name: 'Bronze', min: 0   },
-  ],
+  // Keys that never count
+  excludedKeys: ['Escape', 'MetaLeft', 'MetaRight', 'OSLeft', 'OSRight'],
+
+  // Two extra survey questions for this task (keyboard type; whether keys mattered).
+  // OFF until they are approved by the IRB.
+  extraSurveyQuestions: false,
+
+  fullscreen: true,
+  showSummary: false,           // pilot summary on the task-complete screen (researcher use)
+  studyCode: 'KEYS',            // goes in the file names, like H009 in the cup study
 };
 
-// URL options (for testing / counterbalancing):
-//   ?debug=1     short session, goal cup outlined, trial info shown
-//   ?cb=1        HI = orange triangle, LO = red rectangle (as in the paper's Figure 1)
-//   ?cb=2        HI = red rectangle,   LO = orange triangle
-//   ?mode=area   override goalMode
+// Instruction text (edit freely)
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+function instructionsHTML(minutes) {
+  const n = CONFIG.presses, w = WORDS[n] || String(n);
+  const how = CONFIG.mode === 'keys'
+    ? (n === 1 ? 'press any key on your keyboard.'
+               : `make ${w} key presses, one at a time, using any keys on your keyboard.`)
+    : `make ${w} key presses using the <strong>F</strong> and <strong>J</strong> keys, in any combination.`;
+  return `<p>In this task you can earn points.</p>
+    <p>A colored circle will appear in the middle of the screen. <strong>Each time a circle appears, ${how}</strong></p>
+    <p>Your goal is to <strong>earn as many points as you can.</strong></p>
+    <p>The first few rounds are practice. The task takes about <strong>${minutes} minutes</strong>.</p>`;
+}
+
+// URL options (see the notes at the top of the file)
 const params = new URLSearchParams(window.location.search);
 const DEBUG = params.get('debug') === '1';
-if (params.get('mode') === 'area' || params.get('mode') === 'exact') CONFIG.goalMode = params.get('mode');
-if (DEBUG) {
-  CONFIG.training.blocks = Math.min(CONFIG.training.blocks, 1);
-  CONFIG.test.blocks = 2;
-}
+if (params.get('mode') === 'sequence') CONFIG.mode = 'sequence';
+if (params.has('presses')) CONFIG.presses = Math.min(8, Math.max(1, parseInt(params.get('presses'), 10) || CONFIG.presses));
+if (params.has('blocks')) CONFIG.blocks = Math.max(1, parseInt(params.get('blocks'), 10) || CONFIG.blocks);
+if (DEBUG) { CONFIG.blocks = Math.min(CONFIG.blocks, 2); CONFIG.showSummary = true; }
+if (params.get('summary') === '1') CONFIG.showSummary = true;
+const SPEED = Math.max(1, parseFloat(params.get('speed')) || 1);
+const KEYS_MODE = CONFIG.mode === 'keys';
+const NP = CONFIG.presses;
 
 // ═══════════════════════════════════════════════════════════════
 //  DATAPIPE (sends data to the study's Google Drive folder)
 // ═══════════════════════════════════════════════════════════════
-const DATAPIPE_EXPERIMENT_ID = 'd6rJriDPvzrQ';
-const IS_TEST = DEBUG || params.get('test') === '1';   // test files are labeled TEST_
+const DATAPIPE_EXPERIMENT_ID = 'd6rJriDPvzrQ';   // same DataPipe experiment as the cup study
+const IS_TEST = DEBUG || params.get('test') === '1' || SPEED > 1;   // test files are labeled TEST_
 
 // Random participant code, e.g. P7KQ2MXRA (no 0/O or 1/I, to avoid confusion).
 // Not linked to names or SONA IDs.
@@ -496,59 +548,97 @@ async function sendToDataPipe(filename, csvString) {
   return false;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  GEOMETRY
-//  The task logic uses a flat 600 × 600 "ground" grid (as if seen from above):
-//  row 1 is the far/north row, column 1 is the left/west column.
-//  That ground is drawn as a tilted tabletop in a 700 × 490 scene.
-//  Xcord/Ycord in the data are click positions in the 700 × 490 scene.
-// ═══════════════════════════════════════════════════════════════
-const GRID = 4;
-const SPACING = 140;
-const OFFSET = 90;           // ground position of the first cup's center
-const cupU = c => OFFSET + c * SPACING;
-const cupV = r => OFFSET + r * SPACING;
-// Cups are numbered 1–16 row by row: 1–4 = back row (left to right), 13–16 = front row.
-const cupID = (r, c) => String(r * GRID + c + 1);
-
-// Perspective: things further away (smaller v) are drawn smaller and higher up.
-const P = { cx: 350, yNear: 445, s: 0.95, alpha: 0.35, h: 0.85 };
-function project(u, v) {
-  const w = 1 + P.alpha * (600 - v) / 600;
-  return { x: P.cx + (u - 300) * P.s / w, y: P.yNear - (600 - v) * P.h / w, k: P.s / w };
+// Wraps sendToDataPipe so the page knows when an upload is still in progress
+function trackedSave(filename, csvString) {
+  S.pendingUploads = (S.pendingUploads || 0) + 1;
+  return sendToDataPipe(filename, csvString).finally(() => { S.pendingUploads--; });
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  KEYBOARD MAP
+//  Reference: full-size US (ANSI) keyboard, in key widths. event.code names the
+//  PHYSICAL key, so positions hold on any language layout.
+// ═══════════════════════════════════════════════════════════════
+const L = s => s.split(' ');
+const ROW_DEFS = [
+  // [code, label, width]; code null = gap
+  [['Escape', 'Esc', 1], [null, '', 1], ...L('F1 F2 F3 F4').map(f => [f, f, 1]), [null, '', 0.5],
+   ...L('F5 F6 F7 F8').map(f => [f, f, 1]), [null, '', 0.5], ...L('F9 F10 F11 F12').map(f => [f, f, 1])],
+  [['Backquote', '`', 1], ...L('1 2 3 4 5 6 7 8 9 0').map(d => ['Digit' + d, d, 1]),
+   ['Minus', '-', 1], ['Equal', '=', 1], ['Backspace', 'Bksp', 2]],
+  [['Tab', 'Tab', 1.5], ...L('Q W E R T Y U I O P').map(k => ['Key' + k, k, 1]),
+   ['BracketLeft', '[', 1], ['BracketRight', ']', 1], ['Backslash', '\\', 1.5]],
+  [['CapsLock', 'Caps', 1.75], ...L('A S D F G H J K L').map(k => ['Key' + k, k, 1]),
+   ['Semicolon', ';', 1], ['Quote', "'", 1], ['Enter', 'Enter', 2.25]],
+  [['ShiftLeft', 'Shift', 2.25], ...L('Z X C V B N M').map(k => ['Key' + k, k, 1]),
+   ['Comma', ',', 1], ['Period', '.', 1], ['Slash', '/', 1], ['ShiftRight', 'Shift', 2.75]],
+  [['ControlLeft', 'Ctrl', 1.25], ['MetaLeft', 'Win', 1.25], ['AltLeft', 'Alt', 1.25], ['Space', 'Space', 6.25],
+   ['AltRight', 'Alt', 1.25], ['MetaRight', 'Win', 1.25], ['ContextMenu', 'Menu', 1.25], ['ControlRight', 'Ctrl', 1.25]],
+];
+// [code, label, left, row, width, height] for keys outside the main block
+const EXTRA_DEFS = [
+  ['PrintScreen', 'PrtSc', 15.25, 0], ['ScrollLock', 'ScrLk', 16.25, 0], ['Pause', 'Pause', 17.25, 0],
+  ['Insert', 'Ins', 15.25, 1], ['Home', 'Home', 16.25, 1], ['PageUp', 'PgUp', 17.25, 1],
+  ['Delete', 'Del', 15.25, 2], ['End', 'End', 16.25, 2], ['PageDown', 'PgDn', 17.25, 2],
+  ['ArrowUp', '↑', 16.25, 4], ['ArrowLeft', '←', 15.25, 5], ['ArrowDown', '↓', 16.25, 5], ['ArrowRight', '→', 17.25, 5],
+  ['NumLock', 'Num', 18.5, 1], ['NumpadDivide', '/', 19.5, 1], ['NumpadMultiply', '*', 20.5, 1], ['NumpadSubtract', '-', 21.5, 1],
+  ['Numpad7', '7', 18.5, 2], ['Numpad8', '8', 19.5, 2], ['Numpad9', '9', 20.5, 2], ['NumpadAdd', '+', 21.5, 2, 1, 2],
+  ['Numpad4', '4', 18.5, 3], ['Numpad5', '5', 19.5, 3], ['Numpad6', '6', 20.5, 3],
+  ['Numpad1', '1', 18.5, 4], ['Numpad2', '2', 19.5, 4], ['Numpad3', '3', 20.5, 4], ['NumpadEnter', 'Ent', 21.5, 4, 1, 2],
+  ['Numpad0', '0', 18.5, 5, 2], ['NumpadDecimal', '.', 20.5, 5],
+  ['IntlBackslash', '\\', 1.25, 4],   // ISO keyboards only (key left of Z); not drawn in the summary
+];
+const NAV = new Set(L('PrintScreen ScrollLock Pause Insert Home PageUp Delete End PageDown'));
+function zoneOf(code, row) {
+  if (/^Numpad|^NumLock$/.test(code)) return 'numpad';
+  if (/^Arrow/.test(code)) return 'arrow';
+  if (NAV.has(code)) return 'nav';
+  if (row === 0) return 'function';
+  if (code === 'Space') return 'space';
+  if (/^(Shift|Control|Alt|Meta|OS)(Left|Right)$|^CapsLock$|^ContextMenu$/.test(code)) return 'modifier';
+  return 'main';
+}
+const KEYPOS = {};
+ROW_DEFS.forEach((row, r) => {
+  let left = 0;
+  row.forEach(([code, lab, w]) => {
+    if (code) KEYPOS[code] = { label: lab, left, row: r, w, h: 1, x: left + w / 2, y: r, zone: zoneOf(code, r) };
+    left += w;
+  });
+});
+EXTRA_DEFS.forEach(([code, lab, left, r, w = 1, h = 1]) => {
+  KEYPOS[code] = { label: lab, left, row: r, w, h, x: left + w / 2, y: r + (h - 1) / 2, zone: zoneOf(code, r) };
+});
+const EXCLUDED = new Set(CONFIG.excludedKeys);
+const MOD_RE = /^(Shift|Control|Alt|Meta|OS)(Left|Right)$/;
+// Name used in the data: letters and digits as themselves, everything else by its code name.
+const keyName = code => /^Key[A-Z]$/.test(code) ? code.slice(3) : /^Digit\d$/.test(code) ? code.slice(5) : code;
+const isValid = code => {
+  if (!code || code === 'Unidentified') return false;
+  return KEYS_MODE ? !EXCLUDED.has(code) : (code === 'KeyF' || code === 'KeyJ');
+};
 
 // ═══════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════
+const COLOR_NAMES = Object.keys(CONFIG.colors);
 const S = {
-  subject: '',
-  date: '',
-  counterbalance: null,     // 1 or 2
-  hiShape: '', loShape: '',
-  trials: [],
-  trialIndex: -1,
-  current: null,
-  sessionStart: null,
-  trialStart: null,
-  points: 0,
-  searchNum: 0,
-  bgClickNum: 0,
-  searched: new Set(),
-  acceptingInput: false,
-  lockedUntil: 0,
-  timeoutHandle: null,
-  rows: [],
-  itiClicks: [],            // clicks between rounds, logged once the next round starts
-  attnPassed: 0,
-  attnTotal: 0,
-  finished: false,
+  subject: '', date: '', time: '', sessionISO: '',
+  counterbalance: null,         // 0: blue = 100%, orange = 20%;  1: the reverse
+  state: 'consent',             // consent | instructions | iti | respond | outcome | check | between | done
+  phase: 'practice', trials: [], testTrials: [], i: -1, cur: null, timer: null,
+  points: 0, precue: 0, rows: [], tlog: [], cueCounts: {},
+  attnPassed: 0, attnTotal: 0,
+  sessionStart: null, finished: false, pendingUploads: 0,
 };
 window.__task = S;  // exposed for testing
 
 // ═══════════════════════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const showEl = el => el.classList.remove('hidden');
+const hideEl = el => el.classList.add('hidden');
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -557,186 +647,150 @@ function shuffle(arr) {
   }
   return a;
 }
-
-function maxRun(seq) {
-  let best = 0, run = 0, prev = null;
-  for (const t of seq) {
-    run = (t.cue === prev) ? run + 1 : 1;
-    prev = t.cue;
-    best = Math.max(best, run);
-  }
-  return best;
-}
-
+const randBetween = (lo, hi) => lo + Math.random() * (hi - lo);
 function pad(n, w = 2) { return String(n).padStart(w, '0'); }
-
-function fmtSessionTime(ms) {
-  // H:MM:SS.ffffff
-  const totalUs = Math.round(ms * 1000);
-  const h = Math.floor(totalUs / 3.6e9);
-  const m = Math.floor((totalUs % 3.6e9) / 6e7);
-  const s = Math.floor((totalUs % 6e7) / 1e6);
-  const us = totalUs % 1e6;
-  return `${h}:${pad(m)}:${pad(s)}.${pad(us, 6)}`;
-}
-
 function todayString() {
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
+const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+const median = xs => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(x)) ? '–' : x.toFixed(d);
+const pct = x => (x === null || x === undefined || Number.isNaN(x)) ? '–' : Math.round(100 * x) + '%';
+const hexA = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const escHTML = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
-function svgEl(tag, attrs, parent) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for (const k in attrs) el.setAttribute(k, attrs[k]);
-  if (parent) parent.appendChild(el);
-  return el;
+let actx = null;
+function chime() {
+  if (!actx) return;
+  const t = actx.currentTime;
+  [880, 1320].forEach((f, k) => {
+    const o = actx.createOscillator(), g = actx.createGain(), s = t + k * 0.08;
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, s);
+    g.gain.exponentialRampToValueAtTime(0.25, s + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, s + 0.35);
+    o.connect(g).connect(actx.destination); o.start(s); o.stop(s + 0.4);
+  });
 }
-
-const pts = arr => arr.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
 
 // ═══════════════════════════════════════════════════════════════
 //  BUILD THE TRIAL SEQUENCE
 // ═══════════════════════════════════════════════════════════════
-function buildBlock(phase, block, nHi, nLo, hiProb, loProb, prevTrials) {
-  const nHiRew = Math.round(nHi * hiProb);
-  const nLoRew = Math.round(nLo * loProb);
-  const hiRew = shuffle([...Array(nHi)].map((_, i) => i < nHiRew));
-  const loRew = shuffle([...Array(nLo)].map((_, i) => i < nLoRew));
-
-  let blockTrials = [];
-  for (let i = 0; i < nHi; i++) blockTrials.push({ phase, block, cue: 'HI', prob: hiProb, rewarded: hiRew[i] });
-  for (let i = 0; i < nLo; i++) blockTrials.push({ phase, block, cue: 'LO', prob: loProb, rewarded: loRew[i] });
-
-  // Shuffle until no run (including the end of the previous block) exceeds the limit
-  const tail = prevTrials.slice(-CONFIG.maxSameTypeRun);
-  let attempts = 0;
-  do {
-    blockTrials = shuffle(blockTrials);
-    attempts++;
-  } while (maxRun(tail.concat(blockTrials)) > CONFIG.maxSameTypeRun && attempts < 5000);
-
-  return blockTrials;
+function runOK(seq) {
+  let run = 1;
+  for (let k = 1; k < seq.length; k++) {
+    run = seq[k] === seq[k - 1] ? run + 1 : 1;
+    if (run > CONFIG.maxSameColorRun) return false;
+  }
+  return true;
 }
 
-function chooseLocation(prev, shape) {
-  // Returns the landmark's ground position and the goal cup for one trial.
-  // Avoids repeating the previous trial's goal cup.
-  let loc;
-  do {
-    if (CONFIG.goalMode === 'area') {
-      // Landmark at the center of a 2×2 group of cups; goal is one of the four.
-      const r0 = Math.floor(Math.random() * (GRID - 1));
-      const c0 = Math.floor(Math.random() * (GRID - 1));
-      const corners = [[r0, c0], [r0, c0 + 1], [r0 + 1, c0], [r0 + 1, c0 + 1]];
-      const [gr, gc] = corners[Math.floor(Math.random() * 4)];
-      loc = {
-        goalR: gr, goalC: gc,
-        lmU: cupU(c0) + SPACING / 2,
-        lmV: cupV(r0) + SPACING / 2,
-        area: corners.map(([r, c]) => cupID(r, c)).join('|'),
-      };
-    } else {
-      // Landmark standing right beside the goal cup (any of the 16 cups can be the goal).
-      // Its near edge sits just outside the cup's rim, so it's clearly closer to the
-      // goal cup than to the neighboring cup.
-      const gr = Math.floor(Math.random() * GRID);
-      const gc = Math.floor(Math.random() * GRID);
-      const side = CONFIG.landmarkSide === 'left' ? -1 : 1;
-      const halfW = LANDMARK_W[shape] / 2;
-      const offset = CUP.rBase + 4 + halfW;
-      loc = { goalR: gr, goalC: gc, lmU: cupU(gc) + side * offset, lmV: cupV(gr) + 1, area: cupID(gr, gc) };
-    }
-  } while (prev && prev.goalR === loc.goalR && prev.goalC === loc.goalC);
-  return loc;
-}
-
-function buildTrials() {
-  const all = [];
-  for (let b = 1; b <= CONFIG.training.blocks; b++) {
-    all.push(...buildBlock('training', b, CONFIG.training.hiPerBlock, CONFIG.training.loPerBlock, 1.0, 1.0, all));
+function buildTestTrials() {
+  const out = [];
+  const n = CONFIG.roundsPerColorPerBlock;
+  const perm = S.counterbalance === 0 ? [0, 1] : [1, 0];   // cue index -> color index
+  for (let b = 1; b <= CONFIG.blocks; b++) {
+    const items = [];
+    CONFIG.probs.forEach((p, c) => {
+      const k = Math.round(p * n);
+      shuffle([...Array(n)].map((_, i) => (i < k ? 1 : 0))).forEach(s => items.push({ cue: c, scheduled: s }));
+    });
+    const tail = out.slice(-CONFIG.maxSameColorRun).map(t => t.cue);
+    let order, tries = 0;
+    do { order = shuffle(items); tries++; }
+    while (!runOK(tail.concat(order.map(o => o.cue))) && tries < 10000);
+    order.forEach(o => {
+      const name = COLOR_NAMES[perm[o.cue]];
+      out.push({ ...o, block: b, prob: CONFIG.probs[o.cue], colorName: name, hex: CONFIG.colors[name] });
+    });
   }
-  for (let b = 1; b <= CONFIG.test.blocks; b++) {
-    all.push(...buildBlock('test', b, CONFIG.test.hiPerBlock, CONFIG.test.loPerBlock, CONFIG.hiProb, CONFIG.loProb, all));
-  }
-  // Attention checks: one per test block from checkFirstBlock on, after a random round in checkRoundRange
+  // Attention checks: one per block from checkFirstBlock on, after a random round in checkRoundRange
   if (CONFIG.attentionChecks) {
     const [lo, hi] = CONFIG.checkRoundRange;
     const words = shuffle(CONFIG.checkWords);
-    let n = 0;
-    for (let b = CONFIG.checkFirstBlock; b <= CONFIG.test.blocks; b++) {
-      const block = all.filter(t => t.phase === 'test' && t.block === b);
-      const pos = Math.min(block.length, lo + Math.floor(Math.random() * (hi - lo + 1)));
-      block[pos - 1].checkWord = words[n++ % words.length];   // a different target word each time
+    let w = 0;
+    for (let b = CONFIG.checkFirstBlock; b <= CONFIG.blocks; b++) {
+      const block = out.filter(t => t.block === b);
+      const pos = Math.min(block.length - 1, lo + Math.floor(Math.random() * (hi - lo + 1)));
+      block[pos - 1].checkWord = words[w++ % words.length];   // a different target word each time
     }
   }
+  return out;
+}
 
-  let prev = null;
-  all.forEach((t, i) => {
-    t.trialNum = i + 1;
-    t.landmark = (t.cue === 'HI') ? S.hiShape : S.loShape;
-    Object.assign(t, chooseLocation(prev, t.landmark));
-    t.goalCup = cupID(t.goalR, t.goalC);
-    prev = t;
-  });
-  return all;
+function buildPracticeTrials() {
+  const n = CONFIG.practiceRounds, k = Math.round(CONFIG.practiceProb * n);
+  return shuffle([...Array(n)].map((_, i) => ({
+    cue: -1, scheduled: i < k ? 1 : 0, block: 0, prob: CONFIG.practiceProb,
+    colorName: 'gray', hex: CONFIG.practiceColor })));
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  DATA LOGGING  (one row per event, pigeon-style columns)
+//  DATA LOGGING  (one row per counted press, plus one row per attention check)
 // ═══════════════════════════════════════════════════════════════
-//  Events: cup_search, goal_search, background_click, landmark_click, ITI_click,
-//          reinforced_trial, nonreinforced_trial, timeout_trial,
-//          attention_check_pass, attention_check_fail, SessionEnds
-//  TrialTime: seconds since the round started (negative for ITI_click = time before the
-//             next round starts; for attention-check rows = seconds taken to answer).
-//  BackgroundClickNum counts clicks on the table and on the landmark.
 const COLUMNS = [
-  'SessionTime', 'Xcord', 'Ycord', 'Event', 'TrialTime',
-  'TrialType', 'ScheduledReward', 'CupID', 'GoalCup',
-  'CupSearchNum', 'BackgroundClickNum', 'TrialNum', 'Landmark',
-  'Subject', 'ExpPhase', 'Date',
+  'participant_id', 'date', 'session_start', 'counterbalance', 'response_mode', 'presses_required',
+  'phase', 'trial', 'block', 'cue_trial', 'cue_color', 'cue_prob', 'scheduled_reward', 'completed', 'rewarded',
+  'trial_response', 'invalid_presses', 'fast_presses', 'precue_presses', 'points_total', 'cue_onset_ms',
+  'press', 'key', 'key_zone', 'key_typed', 'key_x', 'key_y', 'press_time_ms', 'ipi_ms',
+  'check_word', 'check_choice', 'check_passed', 'check_rt_ms',
+  'screen', 'user_agent',
 ];
 
-const LANDMARK_NAMES = { triangle: 'orange_triangle', rectangle: 'red_rectangle' };
+function baseRow() {
+  return {
+    participant_id: S.subject, date: S.date, session_start: S.sessionISO, counterbalance: S.counterbalance,
+    response_mode: CONFIG.mode, presses_required: NP,
+    screen: `${screen.width}x${screen.height}`, user_agent: navigator.userAgent,
+  };
+}
 
-function logEvent(event, extra = {}) {
-  const now = extra.time != null ? extra.time : performance.now();
-  const t = S.current;
-  S.rows.push({
-    SessionTime: fmtSessionTime(now - S.sessionStart),
-    Xcord: extra.x != null ? Math.round(extra.x) : 'NA',
-    Ycord: extra.y != null ? Math.round(extra.y) : 'NA',
-    Event: event,
-    TrialTime: (extra.trialTime != null ? extra.trialTime : (now - S.trialStart) / 1000).toFixed(3),
-    TrialType: t ? t.cue : 'NA',
-    ScheduledReward: t ? (t.rewarded ? 1 : 0) : 'NA',
-    CupID: extra.cup || 'NA',
-    GoalCup: t ? t.goalCup : 'NA',
-    CupSearchNum: S.searchNum,
-    BackgroundClickNum: S.bgClickNum,
-    TrialNum: t ? t.trialNum : 'NA',
-    Landmark: t ? LANDMARK_NAMES[t.landmark] : 'NA',
-    Subject: S.subject,
-    ExpPhase: t ? t.phase : 'NA',
-    Date: S.date,
-  });
+function logTrial(c, completed, rewarded) {
+  const t = c.t;
+  let cueTrial = '';
+  if (S.phase === 'test') { S.cueCounts[t.cue] = (S.cueCounts[t.cue] || 0) + 1; cueTrial = S.cueCounts[t.cue]; }
+  const names = c.codes.map(keyName);
+  const trialPart = {
+    ...baseRow(), phase: S.phase, trial: S.i + 1, block: t.block, cue_trial: cueTrial,
+    cue_color: t.colorName, cue_prob: t.prob, scheduled_reward: t.scheduled,
+    completed: completed ? 1 : 0, rewarded: rewarded ? 1 : 0, trial_response: names.join(' '),
+    invalid_presses: c.invalid, fast_presses: c.fast, precue_presses: c.precue,
+    points_total: S.points, cue_onset_ms: (c.onset - S.sessionStart).toFixed(1),
+  };
+  const pressRow = k => {
+    const code = k >= 0 ? c.codes[k] : '', pos = k >= 0 ? KEYPOS[code] : null;
+    return { ...trialPart,
+      press: k + 1, key: k >= 0 ? names[k] : '', key_zone: k >= 0 ? (pos ? pos.zone : 'other') : '',
+      key_typed: k >= 0 ? c.typed[k] : '', key_x: pos ? pos.x : '', key_y: pos ? pos.y : '',
+      press_time_ms: k >= 0 ? c.presses[k].toFixed(1) : '',
+      ipi_ms: k > 0 ? (c.presses[k] - c.presses[k - 1]).toFixed(1) : '' };
+  };
+  if (c.codes.length) c.codes.forEach((_, k) => S.rows.push(pressRow(k)));
+  else S.rows.push(pressRow(-1));
+
+  const pts = c.codes.map(k => KEYPOS[k]).filter(Boolean);
+  S.tlog.push({ phase: S.phase, prob: t.prob, colorName: t.colorName, completed, rewarded,
+    response: names.join(' '), codes: c.codes.slice(), xs: pts.map(p => p.x), ys: pts.map(p => p.y) });
+}
+
+// Open-ended answers can contain commas, quotes, or line breaks, so quote cells when needed
+function csvCell(v) {
+  const str = String(v ?? '');
+  return /[",\n\r]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
 }
 
 function buildCSV() {
-  const clean = v => String(v).replace(/[,\n\r"]/g, '_');
-  const lines = [COLUMNS.join(',')];
-  for (const row of S.rows) lines.push(COLUMNS.map(c => clean(row[c])).join(','));
-  return lines.join('\n');
+  return [COLUMNS.join(','), ...S.rows.map(r => COLUMNS.map(c => csvCell(r[c])).join(','))].join('\n');
 }
 
-// e.g. P7KQ2MXRA_2026-11-05_14.03.22_H009_data.csv
+// e.g. P7KQ2MXRA_2026-11-12_14.03.22_KEYS_data.csv
 function dataFilename() {
-  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_${S.time}_H009_data.csv`;
+  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_${S.time}_${CONFIG.studyCode}_data.csv`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -746,10 +800,11 @@ const SURVEY_COLUMNS = [
   'Subject', 'Date', 'AttentionChecksPassed',
   'Strategy', 'NoticedPattern', 'PatternDescription', 'ChangedResponses', 'ChangeDescription',
   'Age', 'Gender', 'GenderOther', 'RaceEthnicity', 'RaceEthnicityOther', 'YearInSchool', 'YearInSchoolOther',
+  'KeyboardType', 'KeysMattered',
 ];
 
 function surveyFilename() {
-  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_${S.time}_H009_survey.csv`;
+  return `${IS_TEST ? 'TEST_' : ''}${S.subject}_${S.date}_${S.time}_${CONFIG.studyCode}_survey.csv`;
 }
 
 function collectSurvey() {
@@ -777,330 +832,129 @@ function collectSurvey() {
     RaceEthnicityOther: text('q8_other'),
     YearInSchool: radio('q9'),
     YearInSchoolOther: text('q9_other'),
+    KeyboardType: CONFIG.extraSurveyQuestions ? radio('q10') : 'NA',
+    KeysMattered: CONFIG.extraSurveyQuestions ? radio('q11') : 'NA',
   };
-}
-
-// Open-ended answers can contain commas, quotes, or line breaks, so quote cells when needed
-function csvCell(v) {
-  const str = String(v);
-  return /[",\n\r]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
 }
 
 function buildSurveyCSV(answers) {
   return SURVEY_COLUMNS.join(',') + '\n' + SURVEY_COLUMNS.map(c => csvCell(answers[c])).join(',');
 }
 
-// Wraps sendToDataPipe so the page knows when an upload is still in progress
-function trackedSave(filename, csvString) {
-  S.pendingUploads = (S.pendingUploads || 0) + 1;
-  return sendToDataPipe(filename, csvString).finally(() => { S.pendingUploads--; });
-}
-
 // ═══════════════════════════════════════════════════════════════
-//  DRAWING
+//  TASK FLOW
 // ═══════════════════════════════════════════════════════════════
-const layerBoard = document.getElementById('layer-board');
-const layerScene = document.getElementById('layer-scene');
-const layerHit = document.getElementById('layer-hit');
-const layerFB = document.getElementById('layer-feedback');
-const layerDebug = document.getElementById('layer-debug');
-let CUPS = {};   // cupID -> { x, y, k, body, shadow, under, lift }
-
-// Cup shape (in units scaled by k): an upside-down cup sitting on the table
-const CUP = { rBase: 40, ryBase: 15, rTop: 28, ryTop: 11, height: 48, lift: 50 };
-const LANDMARK_W = { rectangle: 16, triangle: 30 };   // landmark widths (ground units)
-
-function drawBoard() {
-  layerBoard.innerHTML = '';
-  const m = 25;
-  const FL = project(-m, -m), FR = project(600 + m, -m);
-  const NL = project(-m, 600 + m), NR = project(600 + m, 600 + m);
-  const fl = [FL.x, FL.y], fr = [FR.x, FR.y], nl = [NL.x, NL.y], nr = [NR.x, NR.y];
-  // front edge of the table (thickness)
-  svgEl('polygon', { points: pts([nl, nr, [nr[0], nr[1] + 16], [nl[0], nl[1] + 16]]), fill: '#8f6a3c' }, layerBoard);
-  // table top
-  svgEl('polygon', { points: pts([fl, fr, nr, nl]), fill: 'url(#tableGrad)', stroke: '#8f6a3c', 'stroke-width': 2 }, layerBoard);
-}
-
-function cupPath(x, y, k) {
-  const rb = CUP.rBase * k, ryb = CUP.ryBase * k, rt = CUP.rTop * k, ryt = CUP.ryTop * k, H = CUP.height * k;
-  return `M ${x - rb} ${y} L ${x - rt} ${y - H} A ${rt} ${ryt} 0 0 1 ${x + rt} ${y - H} ` +
-         `L ${x + rb} ${y} A ${rb} ${ryb} 0 0 1 ${x - rb} ${y} Z`;
-}
-
-function drawCup(id, u, v) {
-  const { x, y, k } = project(u, v);
-  const g = svgEl('g', {}, layerScene);
-  // the spot under the cup (seen when it's lifted)
-  svgEl('ellipse', { cx: x, cy: y, rx: 31 * k, ry: 10 * k, fill: '#000', 'fill-opacity': 0.12 }, g);
-  const shadow = svgEl('ellipse', { cx: x + 5 * k, cy: y + 3 * k, rx: 46 * k, ry: 14 * k, fill: '#000', 'fill-opacity': 0.22 }, g);
-  const under = svgEl('g', {}, g);   // coin goes here when revealed
-  const body = svgEl('g', {}, g);
-  svgEl('path', { d: cupPath(x, y, k), fill: 'url(#cupGrad)', stroke: '#1f3349', 'stroke-width': 1.5 }, body);
-  // rim band near the bottom
-  svgEl('path', {
-    d: `M ${x - (CUP.rBase - 3) * k} ${y - 7 * k} A ${(CUP.rBase - 3) * k} ${(CUP.ryBase - 1) * k} 0 0 0 ${x + (CUP.rBase - 3) * k} ${y - 7 * k}`,
-    fill: 'none', stroke: '#b3cae3', 'stroke-width': 2.2 * k, 'stroke-opacity': 0.75,
-  }, body);
-  // top (the cup's closed bottom)
-  svgEl('ellipse', { cx: x, cy: y - CUP.height * k, rx: CUP.rTop * k, ry: CUP.ryTop * k, fill: '#58779a', stroke: '#1f3349', 'stroke-width': 1.5 }, body);
-
-  // invisible click target that stays put while the cup lifts
-  svgEl('path', { d: cupPath(x, y, k), fill: 'transparent', 'pointer-events': 'all', 'data-cup': id }, layerHit);
-
-  CUPS[id] = { x, y, k, body, shadow, under, lift: 0 };
-}
-
-function drawLandmark(shape, u, v) {
-  const { x, y, k } = project(u, v);
-  const H = 64 * k;                  // taller than the cups so it's always visible
-  const off = [5 * k, -4 * k];       // depth direction of the block (back = up-right)
-  let front, colors;
-  if (shape === 'rectangle') {
-    // red rectangular block (as in Figure 1, bottom panel)
-    const W = LANDMARK_W.rectangle * k;
-    front = [[x - W / 2, y - H], [x + W / 2, y - H], [x + W / 2, y], [x - W / 2, y]];
-    colors = { front: '#c62828', side: '#871b1b', top: '#e35a5a', edge: '#5e1010' };
-  } else {
-    // orange right-triangle block (as in Figure 1, top panel)
-    const W = LANDMARK_W.triangle * k;
-    front = [[x + W / 2, y - H], [x + W / 2, y], [x - W / 2, y]];
-    colors = { front: '#f08a1c', side: '#b5600b', top: '#f7a952', edge: '#7a4106' };
-  }
-
-  const g = svgEl('g', {}, layerScene);
-  const hit = svgEl('g', { 'data-landmark': '1', 'pointer-events': 'all' }, layerHit);
-  svgEl('ellipse', { cx: x + 8 * k, cy: y + 2 * k, rx: 26 * k, ry: 7 * k, fill: '#000', 'fill-opacity': 0.2 }, g);
-
-  // Draw only the side faces that face the viewer, then the front face.
-  for (let i = 0; i < front.length; i++) {
-    const a = front[i], b = front[(i + 1) % front.length];
-    const n = [b[1] - a[1], -(b[0] - a[0])];          // outward normal (clockwise polygon)
-    if (n[0] * off[0] + n[1] * off[1] <= 0) continue; // faces away from viewer
-    const quad = [a, b, [b[0] + off[0], b[1] + off[1]], [a[0] + off[0], a[1] + off[1]]];
-    const isTop = Math.abs(n[1]) > Math.abs(n[0]) && n[1] < 0;
-    svgEl('polygon', { points: pts(quad), fill: isTop ? colors.top : colors.side, stroke: colors.edge, 'stroke-width': 1 }, g);
-    svgEl('polygon', { points: pts(quad), fill: 'transparent' }, hit);
-  }
-  svgEl('polygon', { points: pts(front), fill: colors.front, stroke: colors.edge, 'stroke-width': 1.2 }, g);
-  svgEl('polygon', { points: pts(front), fill: 'transparent' }, hit);
-}
-
-// Draw cups and landmark from back to front so nearer objects overlap farther ones.
-function drawScene(t) {
-  const items = [];
-  for (let r = 0; r < GRID; r++)
-    for (let c = 0; c < GRID; c++)
-      items.push({ v: cupV(r), draw: () => drawCup(cupID(r, c), cupU(c), cupV(r)) });
-  items.push({ v: t.lmV, draw: () => drawLandmark(t.landmark, t.lmU, t.lmV) });
-  items.sort((a, b) => a.v - b.v).forEach(it => it.draw());
-}
-
-function clearScene() {
-  layerScene.innerHTML = '';
-  layerHit.innerHTML = '';
-  layerFB.innerHTML = '';
-  layerDebug.innerHTML = '';
-  CUPS = {};
-}
-
-// ── Lift animation ──
-const ease = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
-
-function setLift(cup, p) {
-  const L = CUP.lift * cup.k;
-  const pivotX = cup.x + CUP.rBase * cup.k;
-  cup.body.setAttribute('transform', `translate(0 ${(-L * p).toFixed(2)}) rotate(${(8 * p).toFixed(2)} ${pivotX.toFixed(1)} ${cup.y.toFixed(1)})`);
-  cup.shadow.setAttribute('fill-opacity', (0.22 * (1 - 0.6 * p)).toFixed(3));
-  cup.lift = p;
-}
-
-function liftCup(id, stayUp) {
-  const cup = CUPS[id];
-  if (!cup) return;
-  cup.token = (cup.token || 0) + 1;
-  const token = cup.token, from = cup.lift, start = performance.now();
-  const up = CONFIG.liftUpMs, hold = CONFIG.liftHoldMs, down = CONFIG.liftDownMs;
-  function frame(now) {
-    if (CUPS[id] !== cup || cup.token !== token) return;   // cup was redrawn or re-lifted
-    const t = now - start;
-    let p;
-    if (t < up) p = from + (1 - from) * ease(t / up);
-    else if (stayUp) { setLift(cup, 1); return; }
-    else if (t < up + hold) p = 1;
-    else if (t < up + hold + down) p = 1 - ease((t - up - hold) / down);
-    else { setLift(cup, 0); return; }
-    setLift(cup, p);
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}
-
-function showCoin(id) {
-  const cup = CUPS[id];
-  const { x, y, k } = cup;
-  svgEl('ellipse', { cx: x, cy: y - 1 * k, rx: 18 * k, ry: 7 * k, fill: '#9c7400' }, cup.under);
-  svgEl('ellipse', { cx: x, cy: y - 4 * k, rx: 18 * k, ry: 7 * k, fill: '#f2c230', stroke: '#a77c00', 'stroke-width': 1.5 }, cup.under);
-  const txt = svgEl('text', {
-    x, y: y - (CUP.lift + CUP.height) * k - 16, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 'bold',
-    fill: '#1f7a2e', stroke: '#fff', 'stroke-width': 4, 'paint-order': 'stroke', 'font-family': 'Arial, sans-serif',
-  }, layerFB);
-  txt.textContent = `+${CONFIG.pointsPerReward}`;
-}
-
 function updateHUD() {
-  document.getElementById('points-display').textContent = `Points: ${S.points}`;
-  const pct = 100 * Math.max(0, S.trialIndex) / S.trials.length;
-  document.getElementById('progress-bar').style.width = pct + '%';
+  $('points-display').textContent = `Points: ${S.points}`;
+  const done = S.phase === 'test' ? Math.max(0, S.i) / S.trials.length : 0;
+  $('progress-bar').style.width = (100 * done) + '%';
 }
 
-function renderTierTable(tableId, headingId, myTier) {
-  document.getElementById(headingId).textContent = CONFIG.tierHeading;
-  const table = document.getElementById(tableId);
-  table.innerHTML = '';
-  CONFIG.tiers.forEach((tier, i) => {
-    const upper = i === 0 ? null : CONFIG.tiers[i - 1].min - 1;
-    const range = upper == null ? `${tier.min}+ points` : `${tier.min}–${upper} points`;
-    const tr = document.createElement('tr');
-    if (myTier && myTier.name === tier.name) tr.className = 'mine';
-    tr.innerHTML = `<td>${tier.name}</td><td>${range}</td>`;
-    table.appendChild(tr);
+function enterFullscreen() {
+  if (CONFIG.fullscreen && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+function beginTask() {
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+  enterFullscreen();
+  S.sessionStart = performance.now();
+  showScreen('screen-task');
+  if (S.trials.length) { S.phase = 'practice'; runTrial(0); }
+  else startTest();
+}
+
+function startTest() {
+  S.phase = 'test';
+  S.trials = S.testTrials;
+  showScreen('screen-task');
+  runTrial(0);
+}
+
+function runTrial(i) {
+  // Attention check after the previous round, if one is scheduled there
+  const prev = S.trials[i - 1];
+  if (S.phase === 'test' && prev && prev.checkWord && !prev.checkDone) {
+    prev.checkDone = true;
+    return runAttentionCheck(prev, () => runTrial(i));
+  }
+  S.i = i;
+  updateHUD();
+  if (i >= S.trials.length) {
+    if (S.phase === 'practice') { S.state = 'between'; showScreen('screen-practice-done'); return; }
+    return finishTask();
+  }
+  [$('cue'), $('outcome'), $('msg'), $('slots')].forEach(hideEl);
+  S.state = 'iti';
+  S.timer = setTimeout(() => showCue(S.trials[i]), randBetween(...CONFIG.itiMs) / SPEED);
+}
+
+function showCue(t) {
+  S.cur = { t, presses: [], codes: [], typed: [], invalid: 0, fast: 0, precue: S.precue, onset: null };
+  S.precue = 0;
+  $('cue').style.background = t.hex;
+  showEl($('cue'));
+  if (NP > 1) { [...$('slots').children].forEach(s => s.classList.remove('on')); showEl($('slots')); }
+  requestAnimationFrame(() => {
+    S.cur.onset = performance.now();
+    S.state = 'respond';
+    S.timer = setTimeout(() => endResponse(false), CONFIG.responseWindowMs / SPEED);
   });
 }
 
-function tierFor(points) {
-  return CONFIG.tiers.find(t => points >= t.min) || CONFIG.tiers[CONFIG.tiers.length - 1];
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  TRIAL FLOW
-// ═══════════════════════════════════════════════════════════════
-function startTrial() {
-  S.trialIndex++;
-  if (S.trialIndex >= S.trials.length) { finishSession(); return; }
-
-  const t = S.current = S.trials[S.trialIndex];
-  S.searchNum = 0;
-  S.bgClickNum = 0;
-  S.searched = new Set();
-  S.lockedUntil = 0;
-
-  clearScene();
-  drawScene(t);
-  updateHUD();
-
-  if (DEBUG) {
-    const g = CUPS[t.goalCup];
-    svgEl('ellipse', { cx: g.x, cy: g.y, rx: (CUP.rBase + 8) * g.k, ry: (CUP.ryBase + 6) * g.k, fill: 'none', stroke: '#d00', 'stroke-width': 2, 'stroke-dasharray': '6 4' }, layerDebug);
-    document.getElementById('debug-info').textContent =
-      `Trial ${t.trialNum}/${S.trials.length} | ${t.phase} block ${t.block} | cue ${t.cue} (${t.landmark}) | scheduled ${t.rewarded ? 'reward' : 'no reward'} | goal cup ${t.goalCup}${t.checkWord ? ' | attention check after this round' : ''}`;
-  }
-
-  S.trialStart = performance.now();
-  // Clicks made between rounds are logged now, with negative TrialTime (like ITI_peck)
-  for (const c of S.itiClicks) logEvent('ITI_click', { x: c.x, y: c.y, time: c.time });
-  S.itiClicks = [];
-  S.acceptingInput = true;
-  S.timeoutHandle = setTimeout(() => endTrial('timeout'), CONFIG.trialTimeoutMs);
-}
-
-function svgPoint(evt) {
-  const svg = document.getElementById('field');
-  const pt = svg.createSVGPoint();
-  pt.x = evt.clientX; pt.y = evt.clientY;
-  return pt.matrixTransform(svg.getScreenCTM().inverse());
-}
-
-function handleFieldPointer(evt) {
-  if (!S.sessionStart || S.finished) return;
-  if (evt.pointerType === 'mouse' && evt.button !== 0) return;
-  evt.preventDefault();
-
+// Keys are handled only while the task is running; consent and survey screens are left alone.
+const TASK_STATES = new Set(['iti', 'respond', 'outcome', 'check', 'between']);
+document.addEventListener('keydown', e => {
+  if (!TASK_STATES.has(S.state)) return;
+  e.preventDefault();                           // block Tab focus, Space scrolling, F5 reload, etc.
+  if (e.repeat) return;                         // ignore auto-repeat from held keys
+  if (S.state === 'check' || S.state === 'between') return;   // these screens are answered with the mouse
   const now = performance.now();
-  if (!S.acceptingInput) {
-    // Between rounds: keep the click and log it as ITI_click when the next round starts
-    const q = svgPoint(evt);
-    S.itiClicks.push({ x: q.x, y: q.y, time: now });
+  if (e.code !== 'Escape') enterFullscreen();   // re-enter if Esc dropped us out
+  if (S.state === 'respond') {
+    const c = S.cur, rt = now - c.onset;
+    const combo = (e.ctrlKey || e.metaKey || e.altKey) && !MOD_RE.test(e.code);
+    if (combo || !isValid(e.code)) { c.invalid++; return; }
+    const last = c.presses.length ? c.presses[c.presses.length - 1] : null;
+    if (last !== null && rt - last < CONFIG.minInterPressMs) { c.fast++; return; }
+    c.presses.push(rt); c.codes.push(e.code); c.typed.push(e.key);
+    if (NP > 1) $('slots').children[c.codes.length - 1].classList.add('on');
+    if (c.codes.length === NP) endResponse(true);
     return;
   }
-  if (now < S.lockedUntil) return;   // still in the lockout from the last cup lift
+  S.precue++;                                   // pressed during the outcome or the gap between rounds
+});
+// Stop a lone Alt press from moving focus to the browser menu (Windows).
+document.addEventListener('keyup', e => { if (TASK_STATES.has(S.state) && e.key === 'Alt') e.preventDefault(); });
 
-  const p = svgPoint(evt);
-  const t = S.current;
-  const target = evt.target.closest ? evt.target.closest('[data-cup],[data-landmark]') : null;
-
-  if (!target || target.hasAttribute('data-landmark')) {
-    S.bgClickNum++;
-    logEvent(target ? 'landmark_click' : 'background_click', { x: p.x, y: p.y });
-    return;
-  }
-
-  const id = target.getAttribute('data-cup');
-  const isGoal = (id === t.goalCup);
-  S.searched.add(id);
-  S.searchNum++;
-  S.lockedUntil = now + CONFIG.searchLockoutMs;
-  logEvent(isGoal ? 'goal_search' : 'cup_search', { x: p.x, y: p.y, cup: id });
-
-  if (isGoal) {
-    endTrial('goal');
-  } else {
-    liftCup(id, false);
-  }
-}
-
-function endTrial(how) {
-  if (!S.acceptingInput) return;
-  S.acceptingInput = false;
-  clearTimeout(S.timeoutHandle);
-
-  const t = S.current;
-  if (how === 'timeout') {
-    logEvent('timeout_trial');
-  } else {
-    if (t.rewarded) {
-      S.points += CONFIG.pointsPerReward;
-      showCoin(t.goalCup);
-      logEvent('reinforced_trial');
-    } else {
-      logEvent('nonreinforced_trial');
-    }
-    liftCup(t.goalCup, true);
-  }
+function endResponse(completed) {
+  if (S.state !== 'respond') return;
+  clearTimeout(S.timer);
+  S.state = 'outcome';
+  const c = S.cur, t = c.t;
+  const rewarded = completed && t.scheduled === 1;
+  if (rewarded) S.points += CONFIG.pointsPerReward;
+  logTrial(c, completed, rewarded);
   updateHUD();
-
+  // brief pause so the final press is visible, then the outcome
   setTimeout(() => {
-    clearScene();                       // empty table between rounds
-    let wait = CONFIG.itiMs;
-    if (CONFIG.roundLengthMs > 0) {
-      // pad the wait so every round takes the same total time
-      const used = performance.now() - S.trialStart;
-      wait = Math.max(CONFIG.itiMs, CONFIG.roundLengthMs - used);
-    }
-    if (S.trialIndex < S.trials.length - 1) {
-      const c = project(300, 300);
-      const msg = svgEl('text', {
-        x: c.x, y: c.y, 'text-anchor': 'middle', 'font-size': 22, fill: '#6b5233',
-        'font-family': 'Arial, sans-serif',
-      }, layerFB);
-      msg.textContent = 'Next round starting soon…';
-    }
-    if (t.checkWord) {
-      // Attention check after this round (round timing is unaffected), then a short gap
-      setTimeout(() => runAttentionCheck(t.checkWord, () => setTimeout(startTrial, CONFIG.itiMs)), wait);
-    } else {
-      setTimeout(startTrial, wait);
-    }
-  }, how === 'timeout' ? 0 : CONFIG.outcomeMs);
+    hideEl($('cue')); hideEl($('slots'));
+    if (rewarded) { $('outcome').textContent = `+${CONFIG.pointsPerReward}`; showEl($('outcome')); chime(); }
+    else if (!completed) { $('msg').textContent = 'Too slow'; showEl($('msg')); }
+    S.timer = setTimeout(() => runTrial(S.i + 1), (completed ? CONFIG.outcomeMs : CONFIG.missMs) / SPEED);
+  }, 150 / SPEED);
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  ATTENTION CHECK  (plain word buttons, nothing related to the task stimuli)
 // ═══════════════════════════════════════════════════════════════
-function runAttentionCheck(target, done) {
-  document.getElementById('check-prompt').innerHTML =
+function runAttentionCheck(trial, done) {
+  S.state = 'check';
+  const target = trial.checkWord;
+  $('check-prompt').innerHTML =
     `To show you’re paying attention, please select the word <strong>${target}</strong>.`;
-  const box = document.getElementById('check-options');
+  const box = $('check-options');
   box.innerHTML = '';
   const shownAt = performance.now();
   shuffle(CONFIG.checkWords).forEach(word => {
@@ -1110,8 +964,10 @@ function runAttentionCheck(target, done) {
       const passed = (word === target);
       S.attnTotal++;
       if (passed) S.attnPassed++;
-      logEvent(passed ? 'attention_check_pass' : 'attention_check_fail',
-               { trialTime: (performance.now() - shownAt) / 1000 });
+      S.rows.push({ ...baseRow(), phase: 'attention_check', trial: S.trials.indexOf(trial) + 1, block: trial.block,
+        check_word: target, check_choice: word, check_passed: passed ? 1 : 0,
+        check_rt_ms: (performance.now() - shownAt).toFixed(1), points_total: S.points });
+      S.state = 'iti';
       showScreen('screen-task');
       done();
     }, { once: true });
@@ -1120,21 +976,28 @@ function runAttentionCheck(target, done) {
   showScreen('screen-check');
 }
 
-function finishSession() {
-  S.current = S.trials[S.trials.length - 1];
-  logEvent('SessionEnds');
-  S.itiClicks = [];             // clicks after the final round are not logged
+function finishTask() {
+  S.state = 'done';
   S.finished = true;
-  S.current = null;
-  S.trialIndex = S.trials.length;
-  updateHUD();
-  const myTier = tierFor(S.points);
-  document.getElementById('end-score').innerHTML =
-    `You earned <strong>${S.points} points</strong> — <strong>${myTier.name}</strong> tier!`;
-  renderTierTable('tier-table-2', 'tier-heading-2', myTier);
+  clearTimeout(S.timer);
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  $('end-score').innerHTML = `You earned <strong>${S.points} points</strong>!`;
   showScreen('screen-end');
+  window.scrollTo(0, 0);
+  const csv = buildCSV();
+  window.__csv = csv;
   // Upload the task data right away, so it's saved even if the survey isn't completed
-  S.taskSave = trackedSave(dataFilename(), buildCSV());
+  S.taskSave = trackedSave(dataFilename(), csv);
+  if (CONFIG.showSummary) {
+    $('pilot-summary').innerHTML = summaryHTML() +
+      '<p><button type="button" class="linklike" id="btn-download">Download data (CSV)</button></p>';
+    $('btn-download').addEventListener('click', () => {
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      const a = Object.assign(document.createElement('a'), { href: url, download: dataFilename() });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+  }
 }
 
 async function submitSurvey() {
@@ -1144,7 +1007,9 @@ async function submitSurvey() {
   status.textContent = 'Saving your responses… please keep this page open.';
   showScreen('screen-thanks');
   window.scrollTo(0, 0);
-  const surveySave = trackedSave(surveyFilename(), buildSurveyCSV(collectSurvey()));
+  const answers = collectSurvey();
+  window.__survey = buildSurveyCSV(answers);
+  const surveySave = trackedSave(surveyFilename(), window.__survey);
   const [taskSaved, surveySaved] = await Promise.all([S.taskSave, surveySave]);
   S.surveyDone = true;
   document.getElementById('code-line').textContent =
@@ -1155,6 +1020,111 @@ async function submitSurvey() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  PILOT SUMMARY  (researcher view only)
+// ═══════════════════════════════════════════════════════════════
+const LETTER_BLOCK = new Set([...L('Q W E R T Y U I O P A S D F G H J K L Z X C V B N M').map(k => 'Key' + k),
+  'Semicolon', 'Comma', 'Period', 'Slash']);
+const entropyBits = items => {
+  if (items.length < 2) return null;
+  const c = {}; items.forEach(x => { c[x] = (c[x] || 0) + 1; });
+  const N = items.length;
+  return Object.values(c).reduce((h, n) => h - (n / N) * Math.log2(n / N), 0);
+};
+function allSequences(n) {
+  return [...Array(2 ** n)].map((_, i) =>
+    [...Array(n)].map((_, b) => ((i >> (n - 1 - b)) & 1 ? 'J' : 'F')).join(' '));
+}
+
+function summarize() {
+  const test = S.tlog.filter(r => r.phase === 'test');
+  return [...CONFIG.probs].sort((a, b) => b - a).map(p => {
+    const rows = test.filter(r => r.prob === p);
+    const done = rows.filter(r => r.completed);
+    const allCodes = done.flatMap(r => r.codes);
+    let rep = 0, pairs = 0; const afterRew = [], afterNo = [];
+    for (let j = 1; j < done.length; j++) {
+      const same = done[j].response === done[j - 1].response ? 1 : 0;
+      rep += same; pairs++;
+      (done[j - 1].rewarded ? afterRew : afterNo).push(same);
+    }
+    let spread = null, dist = null;
+    if (KEYS_MODE && done.length) {
+      if (NP > 1) spread = mean(done.filter(r => r.xs.length > 1).map(r => {
+        const cx = mean(r.xs), cy = mean(r.ys);
+        return mean(r.xs.map((x, k) => Math.hypot(x - cx, r.ys[k] - cy)));
+      }));
+      const xs = done.flatMap(r => r.xs), ys = done.flatMap(r => r.ys);
+      if (xs.length) { const mx = median(xs), my = median(ys); dist = mean(xs.map((x, k) => Math.hypot(x - mx, ys[k] - my))); }
+    }
+    const counts = {};
+    (KEYS_MODE ? allCodes : done.map(r => r.response)).forEach(x => { counts[x] = (counts[x] || 0) + 1; });
+    const name = rows.length ? rows[0].colorName : '';
+    return {
+      p, name, hex: CONFIG.colors[name] || '#888', n: rows.length, nDone: done.length,
+      nRew: rows.filter(r => r.rewarded).length,
+      uniqTrial: mean(done.map(r => new Set(r.codes).size)), uniqAll: Object.keys(counts).length,
+      H: KEYS_MODE ? entropyBits(allCodes) : entropyBits(done.map(r => r.response)),
+      outside: allCodes.length ? allCodes.filter(k => !LETTER_BLOCK.has(k)).length / allCodes.length : null,
+      spread, dist, repeat: pairs ? rep / pairs : null,
+      repAfterRew: mean(afterRew), repAfterNo: mean(afterNo), nAfterRew: afterRew.length, nAfterNo: afterNo.length,
+      counts,
+    };
+  });
+}
+
+function heatKeyboard(s) {
+  const U = 26, G = 2;
+  const max = Math.max(1, ...Object.values(s.counts));
+  const shade = n => n ? `background:${hexA(s.hex, 0.2 + 0.8 * n / max)};` : '';
+  let html = `<div class="hkb" style="width:${22.5 * U}px;height:${6 * U}px">`;
+  for (const [code, k] of Object.entries(KEYPOS)) {
+    if (code === 'IntlBackslash') continue;
+    const n = s.counts[code] || 0;
+    html += `<div class="hk${EXCLUDED.has(code) ? ' off' : ''}" title="${escHTML(keyName(code))}${n ? ': ' + n : ''}"
+      style="left:${k.left * U}px;top:${k.row * U}px;width:${k.w * U - G}px;height:${k.h * U - G}px;${shade(n)}">
+      ${n ? n : `<span class="note">${escHTML(k.label)}</span>`}</div>`;
+  }
+  html += '</div>';
+  const other = Object.entries(s.counts).filter(([c]) => !KEYPOS[c] || c === 'IntlBackslash');
+  if (other.length) html += `<p class="note">Other keys: ${other.map(([c, n]) => `${escHTML(c)} (${n})`).join(', ')}</p>`;
+  return html;
+}
+
+function summaryHTML() {
+  const sum = summarize();
+  const showSpread = KEYS_MODE && NP > 1;
+  const head = `<h3>Pilot summary</h3>
+    <p class="note">Researcher view only. Test rounds only; incomplete rounds left out. Attention checks passed:
+    ${S.attnPassed}/${S.attnTotal}. Keys per round = different keys used within a round (max ${NP}).
+    ${showSpread ? 'Within-round spread = mean distance of a round\'s presses from that round\'s center, in key widths. ' : ''}
+    Entropy = in bits, over ${KEYS_MODE ? 'all presses' : 'round responses'} (0 = always the same).
+    ${KEYS_MODE ? 'Distance = mean distance of presses from the color\'s median key position. Outside letters = share of presses not on the 30 letter-block keys. ' : ''}
+    Repeat = exact same response as on the previous round of that color.</p>`;
+  const table = `<table class="sum"><tr><th>Color</th><th>Rounds</th><th>Completed</th><th>Rewards</th>
+    <th>Keys per round</th>${showSpread ? '<th>Within-round spread</th>' : ''}<th>Different ${KEYS_MODE ? 'keys' : 'responses'}</th><th>Entropy</th>
+    ${KEYS_MODE ? '<th>Distance</th><th>Outside letters</th>' : ''}<th>Repeat</th><th>Repeat after reward</th><th>Repeat after no reward</th></tr>` +
+    sum.map(s => `<tr><td><span class="swatch" style="background:${s.hex}"></span>${Math.round(s.p * 100)}% (${s.name})</td>
+      <td>${s.n}</td><td>${s.nDone}</td><td>${s.nRew}</td><td>${fmt(s.uniqTrial)}</td>
+      ${showSpread ? `<td>${fmt(s.spread)}</td>` : ''}<td>${s.uniqAll}</td><td>${fmt(s.H)}</td>
+      ${KEYS_MODE ? `<td>${fmt(s.dist)}</td><td>${pct(s.outside)}</td>` : ''}
+      <td>${pct(s.repeat)}</td><td>${pct(s.repAfterRew)} <span class="note">(n=${s.nAfterRew})</span></td>
+      <td>${pct(s.repAfterNo)} <span class="note">(n=${s.nAfterNo})</span></td></tr>`).join('') + '</table>';
+  const maps = sum.map(s => {
+    let body;
+    if (KEYS_MODE) body = heatKeyboard(s);
+    else {
+      const max = Math.max(1, ...Object.values(s.counts));
+      const shade = n => n ? `background:${hexA(s.hex, 0.15 + 0.85 * n / max)}` : '';
+      body = `<div class="seqgrid" style="grid-template-columns:repeat(${2 ** Math.floor(NP / 2)}, 64px)">` +
+        allSequences(NP).map(q => { const n = s.counts[q] || 0;
+          return `<div class="seqcell" style="${shade(n)}">${q.replace(/ /g, '')}${n ? '<br>' + n : ''}</div>`; }).join('') + '</div>';
+    }
+    return `<div><h4><span class="swatch" style="background:${s.hex}"></span>${Math.round(s.p * 100)}% color</h4>${body}</div>`;
+  }).join('');
+  return head + table + `<div class="heat">${maps}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  SETUP
 // ═══════════════════════════════════════════════════════════════
 function setupSession() {
@@ -1162,26 +1132,24 @@ function setupSession() {
   S.date = todayString();
   const now = new Date();
   S.time = `${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
-
+  S.sessionISO = now.toISOString();
   const cbParam = params.get('cb');
-  S.counterbalance = (cbParam === '1' || cbParam === '2') ? Number(cbParam) : (Math.random() < 0.5 ? 1 : 2);
-  S.hiShape = S.counterbalance === 1 ? 'triangle' : 'rectangle';
-  S.loShape = S.counterbalance === 1 ? 'rectangle' : 'triangle';
-
-  S.trials = buildTrials();
-  renderTierTable('tier-table-1', 'tier-heading-1', null);
-
-  // Tell participants how long the task takes (and, if rounds are fixed-length,
-  // that rushing won't make it end sooner).
-  const durText = document.getElementById('duration-text');
-  if (CONFIG.roundLengthMs > 0) {
-    const mins = Math.max(1, Math.round(S.trials.length * CONFIG.roundLengthMs / 60000));
-    durText.innerHTML = `Every round lasts the same amount of time, so the task takes about <strong>${mins} minutes</strong> no matter how quickly you go.`;
-  } else {
-    durText.textContent = 'The task takes about 10 minutes.';
-  }
+  S.counterbalance = (cbParam === '0' || cbParam === '1') ? Number(cbParam) : (Math.random() < 0.5 ? 0 : 1);
+  S.testTrials = buildTestTrials();
+  S.trials = buildPracticeTrials();
+  for (let k = 0; k < NP; k++) $('slots').insertAdjacentHTML('beforeend', '<div class="slot"></div>');
+  // About 4.3 s per round (gap + presses + outcome) plus the attention checks
+  const nRounds = S.trials.length + S.testTrials.length;
+  const minutes = Math.max(1, Math.round((nRounds * 4.3 + 60) / 60));
+  $('instructions-box').innerHTML = instructionsHTML(minutes);
+  S.state = 'instructions';
   showScreen('screen-instructions');
 }
+
+// Touch-only devices (phones, tablets) can't do the task
+const touchOnly = ('ontouchstart' in window) && !matchMedia('(any-pointer: fine)').matches;
+if (touchOnly) showScreen('screen-keyboard');
+else showScreen('screen-consent');
 
 // Consent: Continue is enabled once a choice is made
 document.querySelectorAll('input[name="consent"]').forEach(r =>
@@ -1195,14 +1163,11 @@ document.getElementById('btn-consent').addEventListener('click', () => {
 });
 document.getElementById('btn-print').addEventListener('click', () => window.print());
 
-document.getElementById('btn-start').addEventListener('click', () => {
-  showScreen('screen-task');
-  S.sessionStart = performance.now();
-  S.trialStart = S.sessionStart;
-  setTimeout(startTrial, 600);
-});
+$('btn-start').addEventListener('click', e => { e.currentTarget.blur(); beginTask(); });
+$('btn-practice-done').addEventListener('click', e => { e.currentTarget.blur(); startTest(); });
 
-document.getElementById('field').addEventListener('pointerdown', handleFieldPointer);
+// The two keyboard-task questions stay hidden until CONFIG.extraSurveyQuestions is turned on
+if (!CONFIG.extraSurveyQuestions) document.getElementById('extra-questions').style.display = 'none';
 
 document.getElementById('btn-to-survey').addEventListener('click', () => {
   showScreen('screen-survey');
@@ -1217,8 +1182,6 @@ document.querySelectorAll('#survey-form input.other').forEach(box => {
     if (box.value.trim()) choice.checked = true;
   });
 });
-
-drawBoard();
 
 window.addEventListener('beforeunload', e => {
   if ((S.sessionStart && !S.finished) || S.pendingUploads > 0) { e.preventDefault(); e.returnValue = ''; }
